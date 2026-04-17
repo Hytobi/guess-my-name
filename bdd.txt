@@ -1,0 +1,26 @@
+# Schéma données (référence — évolution vers Firebase)
+
+Ce fichier décrit la structure prévue pour la base (Firestore + Storage pour les fichiers).
+Il sera mis à jour au fil du projet.
+
+## user
+- userid : identifiant unique utilisateur
+- name : nom affiché / saisi
+- codeconnexion : code numérique à 8 chiffres, généré à l’enregistrement du nom ; permet de se reconnecter (autre appareil une fois la base centralisée, ex. Firebase)
+
+## enigme
+- enigmeid : identifiant unique
+- libelle : titre / libellé
+- date : jour de référence (AAAA-MM-JJ, calendrier local)
+- nomFichier : nom du fichier image (côté Storage après migration Firebase)
+- message : texte associé à l’énigme
+
+Règle d’affichage sur l’accueil joueur : lister les énigmes dont le jour `date` est strictement antérieur au jour courant (implémenté dans `src/lib/dates.ts`).
+
+## guessList
+- guesslistid : identifiant de la ligne
+- weeknumber : semaine ISO encodée (année × 100 + numéro de semaine, ex. 202615)
+- guess : proposition de l’utilisateur pour la semaine en cours (modifiable à tout moment)
+- enigmeid : énigme concernée
+- userid : auteur de la proposition
+- userName (optionnel, dénormalisé) : copie du nom affiché au moment de l’enregistrement ; en production on pourra joindre `user.name` à la place
