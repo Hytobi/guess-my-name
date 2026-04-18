@@ -3,6 +3,24 @@
 Ce fichier décrit la structure prévue pour la base (Firestore + Storage pour les fichiers).
 Il sera mis à jour au fil du projet.
 
+## Modes applicatifs (impl. `src/lib/dataMode.ts`)
+- **Développement** (`vite` / `import.meta.env.DEV`) : données dans **localStorage** (comportement historique).
+- **Production** (`vite build` / `import.meta.env.PROD`) : **Firestore** (collections ci-dessous) + `onSnapshot` pour le rafraîchissement.
+- Forcer Firestore en local : `VITE_USE_FIREBASE=true`. Forcer le local en preview prod : `VITE_USE_FIREBASE=false`.
+
+## Firestore (collections)
+- `users` — document id = `userid`, champs : `name`, `codeconnexion`
+- `enigmes` — document id = `enigmeid`, champs alignés sur la table enigme (+ `imageDataUrl` optionnel)
+- `guesses` — document id = `guesslistid`, champs alignés sur guessList
+
+Règles de sécurité : voir `firestore.rules` (MVP ouvert ; à durcir avec Firebase Auth).
+
+## Firebase Storage (`storage.rules`)
+- Chemin prévu pour les images d’énigmes : `enigmes/{enigmeId}/{fileName}`.
+- **Lecture** : publique (`allow read: if true`).
+- **Écriture** : uniquement si l’utilisateur est connecté avec **Firebase Auth** et que le document Firestore **`admins/{uid}`** (même `uid` que `request.auth.uid`) contient **`enabled: true`**. Les documents `admins/*` ne sont pas modifiables par le client (règles Firestore `allow false`) : création manuelle dans la console une fois l’UID admin connu.
+- La page admin appelle `signInWithEmailAndPassword` avec `VITE_FIREBASE_ADMIN_EMAIL` / `VITE_FIREBASE_ADMIN_PASSWORD` après le mot de passe applicatif.
+
 ## user
 - userid : identifiant unique utilisateur
 - name : nom affiché / saisi

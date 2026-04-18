@@ -1,0 +1,22 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // MVP : ouvert en lecture/écriture. À restreindre (Auth + rôles admin) avant mise en ligne réelle.
+    match /enigmes/{id} {
+    allow write: if request.auth.uid == 'wcF8IIGP3pSXOKavt455kKunRj63';
+    allow read: if true;
+		}
+    match /guesses/{id} {
+      allow read, write: if true;
+    }
+    match /users/{id} {
+      allow read, write: if true;
+    }
+
+    // Référentiel admin Storage : créé / modifié uniquement depuis la console Firebase
+    // (le client ne doit pas pouvoir s’auto-promouvoir).
+    match /admins/{uid} {
+      allow read, write: if false;
+    }
+  }
+}

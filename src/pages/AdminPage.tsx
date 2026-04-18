@@ -12,8 +12,14 @@ import {
   formatWeeknumber,
   getWeeknumberFromIsoDate,
 } from '../lib/week'
+import { useFirebaseBackend } from '../lib/dataMode'
+import {
+  signInFirebaseAdminAfterGate,
+  signOutFirebaseAdmin,
+} from '../lib/firebaseAuthAdmin'
 import {
   checkAdminPassword,
+  countUsersWhoPlayedEnigme,
   isAdminSessionActive,
   loadEnigmes,
   loadGuessList,
@@ -53,19 +59,30 @@ export function AdminPage() {
     return () => window.removeEventListener('guess-my-name:data', onData)
   }, [refresh])
 
-  const handleLogin = (e: FormEvent) => {
+  const handleLogin = async (e: FormEvent) => {
     e.preventDefault()
     if (!checkAdminPassword(password)) {
       setLoginError('Mot de passe incorrect.')
       return
     }
-    setAdminSessionActive(true)
-    setLogged(true)
     setLoginError(null)
     setPassword('')
+    try {
+      if (useFirebaseBackend()) {
+        await signInFirebaseAdminAfterGate()
+      }
+    } catch {
+      setLoginError(
+        'Connexion Firebase impossible (compte admin ou mot de passe Firebase).',
+      )
+      return
+    }
+    setAdminSessionActive(true)
+    setLogged(true)
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await signOutFirebaseAdmin()
     setAdminSessionActive(false)
     setLogged(false)
   }
@@ -114,7 +131,7 @@ export function AdminPage() {
     }
 
     const list = loadEnigmes()
-    saveEnigmes([next, ...list])
+    await saveEnigmes([next, ...list])
     setLibelle('')
     setMessage('')
     setFile(null)
@@ -123,9 +140,9 @@ export function AdminPage() {
     refresh()
   }
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     const list = loadEnigmes().filter((x) => x.enigmeid !== id)
-    saveEnigmes(list)
+    await saveEnigmes(list)
     refresh()
   }
 
@@ -191,9 +208,7 @@ export function AdminPage() {
         <header className="header">
           <h1>Administration</h1>
           <p className="lede">
-            Connexion requise pour gérer les énigmes. Mot de passe défini par la
-            variable d’environnement <code>VITE_ADMIN_PASSWORD</code> (sinon{' '}
-            <code>dev-admin</code> en développement).
+            Connexion requise pour gérer les énigmes. Si vous n'êtes pas l'un des parents vous n'avez pas accès à cette page.
           </p>
         </header>
         <form className="name-form" onSubmit={handleLogin}>
@@ -334,26 +349,40 @@ export function AdminPage() {
             <p className="empty-state">Aucune énigme.</p>
           ) : (
             <ul className="admin-list">
-              {enigmes.map((en) => (
-                <li key={en.enigmeid} className="admin-row">
-                  <div>
-                    <strong>{en.libelle}</strong>
-                    <span className="meta">
-                      {' '}
-                      · {en.date}
-                      {en.nomFichier ? ` · ${en.nomFichier}` : ''}
-                    </span>
-                    <p className="admin-msg-preview">{en.message}</p>
-                  </div>
-                  <button
-                    type="button"
-                    className="secondary danger"
-                    onClick={() => handleDelete(en.enigmeid)}
-                  >
-                    Supprimer
-                  </button>
-                </li>
-              ))}
+              {enigmes.map((en) => {
+                const players = countUsersWhoPlayedEnigme(en.enigmeid)
+                const playersLabel =
+                  players === 1 ? '1 joueur' : `${players} joueurs`
+                return (
+                  <li key={en.enigmeid} className="admin-row">
+                    <div>
+                      <strong className="admin-enigme-title">
+                        <span>{en.libelle}</span>
+                        <span
+                          className="enigme-player-count"
+                          aria-label={`Nombre de joueurs ayant proposé une réponse : ${players}`}
+                        >
+                          {' '}
+                          ({playersLabel})
+                        </span>
+                      </strong>
+                      <span className="meta">
+                        {' '}
+                        · {en.date}
+                        {en.nomFichier ? ` · ${en.nomFichier}` : ''}
+                      </span>
+                      <p className="admin-msg-preview">{en.message}</p>
+                    </div>
+                    <button
+                      type="button"
+                      className="secondary danger"
+                      onClick={() => handleDelete(en.enigmeid)}
+                    >
+                      Supprimer
+                    </button>
+                  </li>
+                )
+              })}
             </ul>
           )}
         </section>

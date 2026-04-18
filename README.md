@@ -1,5 +1,11 @@
 # React + TypeScript + Vite
 
+
+nvm install 24.15.0
+nvm use 24.15.0
+
+
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:

@@ -15,7 +15,7 @@ export function RootPage() {
   const [draft, setDraft] = useState('')
   const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     const trimmed = draft.trim()
     if (!trimmed) {
@@ -24,15 +24,15 @@ export function RootPage() {
     }
 
     if (isEightDigitCode(trimmed)) {
-      const profile = loginWithConnectionCode(trimmed)
-      if (!profile) {
-        setError('Code inconnu. Vérifiez les 8 chiffres ou utilisez votre nom.')
-        return
-      }
       try {
+        const profile = await loginWithConnectionCode(trimmed)
+        if (!profile) {
+          setError('Code inconnu. Vérifiez les 8 chiffres ou utilisez votre nom.')
+          return
+        }
         setName(profile.name)
       } catch {
-        setError('Impossible d’enregistrer localement. Réessayez.')
+        setError('Connexion impossible. Réessayez.')
         return
       }
       setError(null)
@@ -46,10 +46,10 @@ export function RootPage() {
     }
 
     try {
-      registerUserName(trimmed)
+      await registerUserName(trimmed)
       setName(trimmed)
     } catch {
-      setError('Impossible d’enregistrer localement. Réessayez.')
+      setError('Impossible d’enregistrer. Réessayez.')
       return
     }
     setError(null)
@@ -62,7 +62,7 @@ export function RootPage() {
         <header className="header">
           <h1>Guess my name</h1>
           <p className="lede">
-            Indiquez le nom sous lequel vous apparaissez, ou votre{' '}
+            La premiere fois, indiquez votre <strong>nom et prenom</strong> pour qu'on vous reconnaisse ! Sinon utilisez votre{' '}
             <strong>code à 8 chiffres</strong> si vous avez déjà joué sur un autre
             navigateur où ce code a été affiché.
           </p>
@@ -72,9 +72,7 @@ export function RootPage() {
           <p>
             Après avoir choisi votre nom, un <strong>code de connexion</strong> à
             8 chiffres vous sera affiché. Conservez-le : vous pourrez le saisir ici
-            pour retrouver votre compte sur un autre appareil une fois l’application
-            reliée à une base centralisée (ex. Firebase). En mode test, les comptes
-            restent stockés dans ce navigateur.
+            pour retrouver votre compte sur un autre appareil.
           </p>
         </div>
 
@@ -92,7 +90,7 @@ export function RootPage() {
               setDraft(e.target.value)
               if (error) setError(null)
             }}
-            placeholder="Ex. Camille ou 12345678"
+            placeholder="Ex. Clélia ou 12345678"
             aria-invalid={error ? true : undefined}
             aria-describedby={error ? 'name-error' : undefined}
           />

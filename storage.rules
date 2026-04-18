@@ -1,0 +1,26 @@
+rules_version = '2';
+
+// Stockage : lecture pour tous les utilisateurs (fichiers publics des énigmes).
+// Écriture : uniquement si l’utilisateur est connecté avec Firebase Auth ET que le
+// document Firestore `admins/{request.auth.uid}` existe avec `enabled: true`.
+//
+// Mise en place une fois :
+// 1. Authentication > ajouter l’admin (e-mail / mot de passe).
+// 2. Copier son UID.
+// 3. Firestore > collection `admins` > document id = cet UID > champ `enabled` (bool) = true.
+// 4. Variables Vite `VITE_FIREBASE_ADMIN_EMAIL` / `VITE_FIREBASE_ADMIN_PASSWORD` (connexion au login admin).
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /enigmes/{enigmeId}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && firestore.exists(/databases/(default)/documents/admins/$(request.auth.uid))
+        && firestore.get(/databases/(default)/documents/admins/$(request.auth.uid)).data.enabled == true;
+    }
+
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}

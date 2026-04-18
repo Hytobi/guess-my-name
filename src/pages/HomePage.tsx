@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useUser } from '../context/UserContext'
 import { isEnigmeVisibleOnHome } from '../lib/dates'
 import {
+  countUsersWhoPlayedEnigme,
   ensureUserProfileForName,
   findGuess,
   getMyConnectionCode,
@@ -11,7 +12,7 @@ import {
   readUserId,
   upsertGuess,
 } from '../lib/store'
-import { formatWeeknumber, getCurrentWeeknumber } from '../lib/week'
+import { getCurrentWeeknumber } from '../lib/week'
 
 const DATA_EVENT = 'guess-my-name:data'
 
@@ -40,6 +41,7 @@ export function HomePage() {
 
   const [enigmes, setEnigmes] = useState(loadEnigmes)
   const [connectionCode, setConnectionCode] = useState<string | null>(null)
+  const [connectionCodeVisible, setConnectionCodeVisible] = useState(false)
   const [drafts, setDrafts] = useState<Record<string, string>>({})
   const [savedHint, setSavedHint] = useState<string | null>(null)
 
@@ -56,18 +58,43 @@ export function HomePage() {
   useEffect(() => {
     if (!name) {
       setConnectionCode(null)
+      setConnectionCodeVisible(false)
       return
     }
-    ensureUserProfileForName(name)
-    setConnectionCode(getMyConnectionCode())
+    setConnectionCodeVisible(false)
+    let cancelled = false
+    void (async () => {
+      await ensureUserProfileForName(name)
+      if (cancelled) return
+      setConnectionCode(await getMyConnectionCode())
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [name])
 
   const visibles = useMemo(
     () =>
       enigmes
         .filter((e) => isEnigmeVisibleOnHome(e.date))
-        .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)),
+        .sort((a, b) => {
+          if (a.date < b.date) return 1
+          if (a.date > b.date) return -1
+          return a.enigmeid.localeCompare(b.enigmeid)
+        }),
     [enigmes],
+  )
+
+  /** Énigme la plus récente parmi celles déjà « apparues » (date la plus récente). */
+  const latestVisibleEnigmeId = visibles[0]?.enigmeid
+
+  const isGuessLocked = useCallback(
+    (enigmeid: string): boolean => {
+      if (!latestVisibleEnigmeId || enigmeid === latestVisibleEnigmeId) return false
+      const g = findGuess(userid, weeknumber, enigmeid)
+      return (g?.guess ?? '').trim() !== ''
+    },
+    [latestVisibleEnigmeId, userid, weeknumber],
   )
 
   useEffect(() => {
@@ -80,11 +107,13 @@ export function HomePage() {
   }, [visibles, userid, weeknumber])
 
   const setDraft = (enigmeid: string, text: string) => {
+    if (isGuessLocked(enigmeid)) return
     setDrafts((d) => ({ ...d, [enigmeid]: text }))
     setSavedHint(null)
   }
 
   const saveGuess = (enigmeid: string) => {
+    if (isGuessLocked(enigmeid)) return
     const text = drafts[enigmeid] ?? ''
     const weekAtSave = getCurrentWeeknumber()
     upsertGuess({
@@ -95,7 +124,18 @@ export function HomePage() {
       userName: name ?? '',
     })
     setCalendarTick((n) => n + 1)
-    setSavedHint('Proposition enregistrée (stockage local).')
+    if (enigmeid === latestVisibleEnigmeId) {
+      setSavedHint(
+        'Proposition enregistrée ! Vous pouvez la modifier jusqu’à l’apparition de la prochaine énigme.',
+      )
+    } else {
+      setSavedHint('Proposition enregistrée.')
+    }
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'smooth' })
+      })
+    })
   }
 
   return (
@@ -116,32 +156,55 @@ export function HomePage() {
       </header>
 
       <main className="main-content">
-        {connectionCode ? (
-          <section
-            className="info-banner info-banner-home"
-            role="region"
-            aria-label="Code de connexion"
-          >
-            <p className="code-line">
-              <strong>Votre code à 8 chiffres :</strong>{' '}
-              <span className="code-chip" translate="no">
-                {connectionCode}
-              </span>
-            </p>
-            <p className="info-banner-note">
-              Sur un autre appareil, ouvrez cette page et saisissez ce code à la place
-              du nom pour retrouver le même compte (disponible sur tous les appareils
-              lorsque les données seront synchronisées, par ex. avec Firebase).
-            </p>
-          </section>
+        {savedHint ? (
+          <p className="ok-hint ok-hint-top" role="status">
+            {savedHint}
+          </p>
         ) : null}
+        <section
+          className="info-banner info-banner-home"
+          role="region"
+          aria-label="Connexion sur un autre appareil"
+        >
+          <p className="info-banner-note">
+            Sur un autre appareil, vous pouvez saisir votre code à 8 chiffres à la
+            place du nom pour retrouver le même compte.
+          </p>
+          <div className="connection-code-row">
+            <button
+              type="button"
+              className="secondary narrow"
+              onClick={() => setConnectionCodeVisible((v) => !v)}
+              aria-expanded={connectionCodeVisible}
+              aria-controls="connection-code-display"
+            >
+              {connectionCodeVisible ? 'Masquer mon code' : 'Afficher mon code'}
+            </button>
+            <div
+              id="connection-code-display"
+              className="connection-code-display"
+              aria-live="polite"
+            >
+              {connectionCodeVisible ? (
+                connectionCode ? (
+                  <p className="connection-code-reveal">
+                    <span className="sr-only">Votre code à 8 chiffres : </span>
+                    <span className="code-chip" translate="no">
+                      {connectionCode}
+                    </span>
+                  </p>
+                ) : (
+                  <span className="connection-code-loading">Chargement…</span>
+                )
+              ) : null}
+            </div>
+          </div>
+        </section>
 
         <section className="panel">
           <h2>Énigmes disponibles</h2>
           <p className="panel-intro">
-            Affichage des énigmes dont la date (jour) est strictement antérieure à
-            aujourd’hui (voir <code>bdd.txt</code>). Semaine en cours :{' '}
-            <strong>{formatWeeknumber(weeknumber)}</strong>.
+            <strong>Une nouvelle énigme est disponible chaque Vendredi !</strong>
           </p>
 
           {visibles.length === 0 ? (
@@ -150,51 +213,69 @@ export function HomePage() {
             </p>
           ) : (
             <ul className="enigme-list">
-              {visibles.map((e) => (
-                <li key={e.enigmeid} className="enigme-card">
-                  <div className="enigme-card-head">
-                    <h3>{e.libelle}</h3>
-                    <time dateTime={e.date}>{e.date}</time>
-                  </div>
-                  {e.imageDataUrl ? (
-                    <img
-                      src={e.imageDataUrl}
-                      alt=""
-                      className="enigme-img"
-                    />
-                  ) : e.nomFichier ? (
-                    <p className="file-hint">Fichier : {e.nomFichier}</p>
-                  ) : null}
-                  <p className="enigme-message">{e.message}</p>
+              {visibles.map((e) => {
+                const locked = isGuessLocked(e.enigmeid)
+                const isLatest = e.enigmeid === latestVisibleEnigmeId
+                const players = countUsersWhoPlayedEnigme(e.enigmeid)
+                const playersLabel = `NB propositions : ${players}`
+                return (
+                  <li key={e.enigmeid} className="enigme-card">
+                    <div className="enigme-card-head">
+                      <h3 className="enigme-title-with-stats">
+                        <span className="enigme-libelle">{e.libelle}</span>
+                        <span
+                          className="enigme-player-count"
+                          aria-label={`Nombre de propositions enregistrées : ${players}`}
+                        >
+                          {' '}
+                          ({playersLabel})
+                        </span>
+                      </h3>
+                      <time dateTime={e.date}>{e.date}</time>
+                    </div>
+                    {e.imageDataUrl ? (
+                      <img
+                        src={e.imageDataUrl}
+                        alt=""
+                        className="enigme-img"
+                      />
+                    ) : e.nomFichier ? (
+                      <p className="file-hint">Fichier : {e.nomFichier}</p>
+                    ) : null}
+                    <p className="enigme-message">{e.message}</p>
 
-                  <div className="guess-block">
-                    <label htmlFor={`guess-${e.enigmeid}`}>
-                      Votre proposition (modifiable à tout moment)
-                    </label>
-                    <textarea
-                      id={`guess-${e.enigmeid}`}
-                      rows={3}
-                      value={drafts[e.enigmeid] ?? ''}
-                      onChange={(ev) => setDraft(e.enigmeid, ev.target.value)}
-                      placeholder="Votre réponse ou indice pour cette semaine…"
-                    />
-                    <button
-                      type="button"
-                      className="primary narrow"
-                      onClick={() => saveGuess(e.enigmeid)}
+                    <div
+                      className={`guess-block${locked ? ' guess-block-locked' : ''}`}
                     >
-                      Enregistrer
-                    </button>
-                  </div>
-                </li>
-              ))}
+                      <label htmlFor={`guess-${e.enigmeid}`}>
+                        {locked
+                          ? 'Proposition enregistrée — modification possible uniquement sur l’énigme la plus récente.'
+                          : isLatest
+                            ? 'Votre proposition (modifiable jusqu’à la prochaine énigme)'
+                            : 'Votre proposition'}
+                      </label>
+                      <textarea
+                        id={`guess-${e.enigmeid}`}
+                        rows={3}
+                        readOnly={locked}
+                        value={drafts[e.enigmeid] ?? ''}
+                        onChange={(ev) => setDraft(e.enigmeid, ev.target.value)}
+                        placeholder="Votre réponse ou indice pour cette semaine…"
+                      />
+                      <button
+                        type="button"
+                        className="primary narrow"
+                        disabled={locked}
+                        onClick={() => saveGuess(e.enigmeid)}
+                      >
+                        Enregistrer
+                      </button>
+                    </div>
+                  </li>
+                )
+              })}
             </ul>
           )}
-          {savedHint ? (
-            <p className="ok-hint" role="status">
-              {savedHint}
-            </p>
-          ) : null}
         </section>
       </main>
     </div>
