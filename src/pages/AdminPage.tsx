@@ -6,6 +6,7 @@ import {
   type FormEvent,
 } from 'react'
 import { Link } from 'react-router-dom'
+import { useUser } from '../context/UserContext'
 import type { Enigme, GuessListEntry } from '../types'
 import { todayIsoDay } from '../lib/dates'
 import {
@@ -32,6 +33,7 @@ const MAX_DATA_URL_CHARS = 400_000
 type AdminSection = 'enigmes' | 'propositions'
 
 export function AdminPage() {
+  const { name: playerName } = useUser()
   const [logged, setLogged] = useState(isAdminSessionActive)
   const [section, setSection] = useState<AdminSection>('propositions')
   const [password, setPassword] = useState('')
@@ -249,6 +251,11 @@ export function AdminPage() {
           <Link to="/" className="topbar-link">
             Accueil joueur
           </Link>
+          {playerName ? (
+            <Link to="/profil" className="topbar-link">
+              Mon profil
+            </Link>
+          ) : null}
           <button type="button" className="linkish" onClick={handleLogout}>
             Déconnexion admin
           </button>

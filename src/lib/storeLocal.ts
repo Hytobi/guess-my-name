@@ -116,6 +116,24 @@ export function registerUserName(name: string): UserProfile {
   return row
 }
 
+/** Met à jour uniquement le nom affiché ; le code à 8 chiffres est conservé. */
+export function updateUserDisplayName(name: string): UserProfile | null {
+  const t = name.trim()
+  if (!t) return null
+  const uid = readUserId()
+  if (!uid) return null
+  const users = loadUsers()
+  const idx = users.findIndex((u) => u.userid === uid)
+  if (idx < 0) return null
+  const prev = users[idx]
+  const row: UserProfile = { ...prev, name: t }
+  const next = [...users]
+  next[idx] = row
+  saveUsers(next)
+  notifyDataChanged()
+  return row
+}
+
 export function loginWithConnectionCode(raw: string): UserProfile | null {
   const normalized = raw.replace(/\s+/g, '')
   if (!/^\d{8}$/.test(normalized)) return null

@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useUser } from '../context/UserContext'
+import { LoggedTopBar } from '../components/LoggedTopBar'
 import { isEnigmeVisibleOnHome } from '../lib/dates'
 import {
   countUsersWhoPlayedEnigme,
   ensureUserProfileForName,
   findGuess,
-  getMyConnectionCode,
   getOrCreateUserId,
   loadEnigmes,
   readUserId,
@@ -17,7 +16,7 @@ import { getCurrentWeeknumber } from '../lib/week'
 const DATA_EVENT = 'guess-my-name:data'
 
 export function HomePage() {
-  const { name, clearName } = useUser()
+  const { name } = useUser()
   const userid = readUserId() ?? getOrCreateUserId()
 
   /** Recalcul périodique pour que la semaine ISO suive le calendrier (onglet ouvert plusieurs jours). */
@@ -40,8 +39,6 @@ export function HomePage() {
   )
 
   const [enigmes, setEnigmes] = useState(loadEnigmes)
-  const [connectionCode, setConnectionCode] = useState<string | null>(null)
-  const [connectionCodeVisible, setConnectionCodeVisible] = useState(false)
   const [drafts, setDrafts] = useState<Record<string, string>>({})
   const [savedHint, setSavedHint] = useState<string | null>(null)
 
@@ -56,21 +53,8 @@ export function HomePage() {
   }, [refresh])
 
   useEffect(() => {
-    if (!name) {
-      setConnectionCode(null)
-      setConnectionCodeVisible(false)
-      return
-    }
-    setConnectionCodeVisible(false)
-    let cancelled = false
-    void (async () => {
-      await ensureUserProfileForName(name)
-      if (cancelled) return
-      setConnectionCode(await getMyConnectionCode())
-    })()
-    return () => {
-      cancelled = true
-    }
+    if (!name) return
+    void ensureUserProfileForName(name)
   }, [name])
 
   const visibles = useMemo(
@@ -140,20 +124,7 @@ export function HomePage() {
 
   return (
     <div className="layout">
-      <header className="topbar">
-        <div className="topbar-brand">
-          <Link to="/">Guess my name</Link>
-        </div>
-        <nav className="topbar-nav">
-          <span className="topbar-user">{name}</span>
-          <Link to="/admin" className="topbar-link">
-            Administration
-          </Link>
-          <button type="button" className="linkish" onClick={clearName}>
-            Changer de nom
-          </button>
-        </nav>
-      </header>
+      <LoggedTopBar />
 
       <main className="main-content">
         {savedHint ? (
@@ -161,45 +132,6 @@ export function HomePage() {
             {savedHint}
           </p>
         ) : null}
-        <section
-          className="info-banner info-banner-home"
-          role="region"
-          aria-label="Connexion sur un autre appareil"
-        >
-          <p className="info-banner-note">
-            Sur un autre appareil, vous pouvez saisir votre code à 8 chiffres à la
-            place du nom pour retrouver le même compte.
-          </p>
-          <div className="connection-code-row">
-            <button
-              type="button"
-              className="secondary narrow"
-              onClick={() => setConnectionCodeVisible((v) => !v)}
-              aria-expanded={connectionCodeVisible}
-              aria-controls="connection-code-display"
-            >
-              {connectionCodeVisible ? 'Masquer mon code' : 'Afficher mon code'}
-            </button>
-            <div
-              id="connection-code-display"
-              className="connection-code-display"
-              aria-live="polite"
-            >
-              {connectionCodeVisible ? (
-                connectionCode ? (
-                  <p className="connection-code-reveal">
-                    <span className="sr-only">Votre code à 8 chiffres : </span>
-                    <span className="code-chip" translate="no">
-                      {connectionCode}
-                    </span>
-                  </p>
-                ) : (
-                  <span className="connection-code-loading">Chargement…</span>
-                )
-              ) : null}
-            </div>
-          </div>
-        </section>
 
         <section className="panel">
           <h2>Énigmes disponibles</h2>

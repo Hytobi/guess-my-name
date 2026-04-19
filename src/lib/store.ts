@@ -10,6 +10,7 @@ import {
   registerUserNameRemote,
   saveEnigmesRemote,
   startFirestoreSync,
+  updateUserDisplayNameRemote,
   upsertGuessFirestore,
 } from './storeFirebase'
 import * as L from './storeLocal'
@@ -112,6 +113,17 @@ export async function ensureUserProfileForName(name: string): Promise<void> {
     return
   }
   L.ensureUserProfileForName(name)
+}
+
+/** Met à jour le pseudo affiché sans changer le code à 8 chiffres. */
+export async function updateUserDisplayName(
+  name: string,
+): Promise<UserProfile | null> {
+  if (useFirebaseBackend()) {
+    ensureRemote()
+    return updateUserDisplayNameRemote(name)
+  }
+  return Promise.resolve(L.updateUserDisplayName(name))
 }
 
 export function isAdminSessionActive(): boolean {

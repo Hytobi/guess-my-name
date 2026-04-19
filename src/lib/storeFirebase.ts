@@ -220,6 +220,25 @@ export async function ensureUserProfileForNameRemote(
   await setDoc(ref, { name: t, codeconnexion: code }, { merge: true })
 }
 
+/** Met à jour uniquement le nom ; ne modifie pas `codeconnexion`. */
+export async function updateUserDisplayNameRemote(
+  name: string,
+): Promise<UserProfile | null> {
+  const t = name.trim()
+  if (!t) return null
+  const uid = readUserId()
+  if (!uid) return null
+  const ref = doc(getDb(), 'users', uid)
+  const snap = await getDoc(ref)
+  if (!snap.exists()) return null
+  const data = snap.data()
+  const codeRaw = data.codeconnexion
+  if (typeof codeRaw !== 'string' || !/^\d{8}$/.test(codeRaw)) return null
+  await setDoc(ref, { name: t }, { merge: true })
+  notifyDataChanged()
+  return { userid: uid, name: t, codeconnexion: codeRaw }
+}
+
 /** Mise à jour optimiste du cache + persistance Firestore (API synchrone côté store). */
 export function upsertGuessFirestore(params: {
   userid: string

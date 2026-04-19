@@ -4,6 +4,13 @@
 nvm install 24.15.0
 nvm use 24.15.0
 
+lancer l'appli en local :
+npm run dev
+
+deployer : 
+npm run build
+firebase deploy --only hosting
+
 
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
