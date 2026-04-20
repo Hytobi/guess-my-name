@@ -239,6 +239,19 @@ export async function updateUserDisplayNameRemote(
   return { userid: uid, name: t, codeconnexion: codeRaw }
 }
 
+/**
+ * Autorisation admin côté client (contrôle supplémentaire).
+ * On considère admin uniquement si `users/{userid}.isAdmin === true`.
+ * Champ absent => false (comportement demandé pour les comptes existants).
+ */
+export async function isCurrentUserAdminRemote(): Promise<boolean> {
+  const uid = readUserId()
+  if (!uid) return false
+  const snap = await getDoc(doc(getDb(), 'users', uid))
+  if (!snap.exists()) return false
+  return snap.data()?.isAdmin === true
+}
+
 /** Mise à jour optimiste du cache + persistance Firestore (API synchrone côté store). */
 export function upsertGuessFirestore(params: {
   userid: string

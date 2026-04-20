@@ -6,6 +6,7 @@ import {
   getEnigmesSnapshot,
   getGuessesSnapshot,
   getMyConnectionCodeRemote,
+  isCurrentUserAdminRemote,
   loginWithConnectionCodeRemote,
   registerUserNameRemote,
   saveEnigmesRemote,
@@ -124,6 +125,12 @@ export async function updateUserDisplayName(
     return updateUserDisplayNameRemote(name)
   }
   return Promise.resolve(L.updateUserDisplayName(name))
+}
+
+export async function isCurrentUserAdmin(): Promise<boolean> {
+  if (!useFirebaseBackend()) return false
+  ensureRemote()
+  return isCurrentUserAdminRemote()
 }
 
 export function isAdminSessionActive(): boolean {

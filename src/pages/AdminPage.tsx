@@ -21,6 +21,7 @@ import {
 import {
   checkAdminPassword,
   countUsersWhoPlayedEnigme,
+  isCurrentUserAdmin,
   isAdminSessionActive,
   loadEnigmes,
   loadGuessList,
@@ -79,6 +80,22 @@ export function AdminPage() {
       )
       return
     }
+
+    if (useFirebaseBackend()) {
+      try {
+        const ok = await isCurrentUserAdmin()
+        if (!ok) {
+          setLoginError(
+            'Compte non autorisé. Demandez à un administrateur de vous accorder l’accès.',
+          )
+          return
+        }
+      } catch {
+        setLoginError('Vérification admin impossible. Réessayez.')
+        return
+      }
+    }
+
     setAdminSessionActive(true)
     setLogged(true)
   }
