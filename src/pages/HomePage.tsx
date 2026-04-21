@@ -3,7 +3,7 @@ import { useUser } from '../context/UserContext'
 import { LoggedTopBar } from '../components/LoggedTopBar'
 import { isEnigmeVisibleOnHome } from '../lib/dates'
 import {
-  countUsersWhoPlayedEnigme,
+  countGuessesForEnigme,
   ensureUserProfileForName,
   findGuess,
   getOrCreateUserId,
@@ -71,6 +71,25 @@ export function HomePage() {
 
   /** Énigme la plus récente parmi celles déjà « apparues » (date la plus récente). */
   const latestVisibleEnigmeId = visibles[0]?.enigmeid
+
+  const [enigmeCounts, setEnigmeCounts] = useState<Record<string, number>>({})
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      const next: Record<string, number> = {}
+      for (const e of visibles) {
+        try {
+          next[e.enigmeid] = await countGuessesForEnigme(e.enigmeid)
+        } catch {
+          next[e.enigmeid] = 0
+        }
+      }
+      if (!cancelled) setEnigmeCounts(next)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [visibles])
 
   const isGuessLocked = useCallback(
     (enigmeid: string): boolean => {
@@ -148,20 +167,20 @@ export function HomePage() {
               {visibles.map((e) => {
                 const locked = isGuessLocked(e.enigmeid)
                 const isLatest = e.enigmeid === latestVisibleEnigmeId
-                const players = countUsersWhoPlayedEnigme(e.enigmeid)
-                const playersLabel = `NB propositions : ${players}`
+                const count = enigmeCounts[e.enigmeid] ?? 0
+                const countLabel = `NB propositions : ${count}`
                 return (
                   <li key={e.enigmeid} className="enigme-card">
                     <div className="enigme-card-head">
                       <h3 className="enigme-title-with-stats">
                         <span className="enigme-libelle">{e.libelle}</span>
-                        <span
-                          className="enigme-player-count"
-                          aria-label={`Nombre de propositions enregistrées : ${players}`}
-                        >
-                          {' '}
-                          ({playersLabel})
-                        </span>
+                          <span
+                            className="enigme-player-count"
+                            aria-label={`Nombre de propositions enregistrées : ${count}`}
+                          >
+                            {' '}
+                            ({countLabel})
+                          </span>
                       </h3>
                       <time dateTime={e.date}>{e.date}</time>
                     </div>

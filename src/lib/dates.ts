@@ -19,12 +19,12 @@ export function startOfToday(): Date {
 }
 
 /**
- * Énigmes affichées sur l’accueil : jour du champ `date` strictement avant le jour courant (local).
+ * Énigmes affichées sur l’accueil : jour du champ `date` le jour courant ou avant (local).
  */
 export function isEnigmeVisibleOnHome(isoDay: string): boolean {
   const enigmeDay = parseLocalDay(isoDay)
   if (!enigmeDay) return false
-  return enigmeDay.getTime() < startOfToday().getTime()
+  return enigmeDay.getTime() <= startOfToday().getTime()
 }
 
 export function todayIsoDay(): string {

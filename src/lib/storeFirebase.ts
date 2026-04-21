@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  getCountFromServer,
   getDoc,
   getDocs,
   getFirestore,
@@ -10,6 +11,7 @@ import {
   setDoc,
   where,
   writeBatch,
+  type Unsubscribe,
   type DocumentData,
   type Firestore,
   type QueryDocumentSnapshot,
@@ -27,20 +29,109 @@ function getDb(): Firestore {
 
 let enigmesCache: Enigme[] = []
 let guessesCache: GuessListEntry[] = []
-let started = false
+let startedEnigmes = false
+let guessesMode: 'none' | 'user' | 'all' = 'none'
+let guessesUserid: string | null = null
+let unsubGuesses: Unsubscribe | null = null
 
 export function startFirestoreSync(): void {
-  if (started) return
-  started = true
+  // Démarrage standard : énigmes + guesses du joueur courant.
+  startFirestoreSyncEnigmes()
+  const uid = readUserId() ?? getOrCreateUserId()
+  startFirestoreSyncUserGuesses(uid)
+}
+
+export function startFirestoreSyncEnigmes(): void {
+  if (startedEnigmes) return
+  startedEnigmes = true
   const d = getDb()
-  onSnapshot(collection(d, 'enigmes'), (snap) => {
-    enigmesCache = snap.docs.map(enigmeFromDoc)
-    notifyDataChanged()
-  })
-  onSnapshot(collection(d, 'guesses'), (snap) => {
-    guessesCache = snap.docs.map(guessFromDoc)
-    notifyDataChanged()
-  })
+  onSnapshot(
+    collection(d, 'enigmes'),
+    (snap) => {
+      enigmesCache = snap.docs.map(enigmeFromDoc)
+      notifyDataChanged()
+    },
+    (err) => {
+      console.error('[Guess my name] Firestore énigmes (onSnapshot):', err)
+    },
+  )
+}
+
+/** Joueur : ne souscrit qu’aux guesses du `userid` courant. */
+export function startFirestoreSyncUserGuesses(userid: string): void {
+  // Si l’admin a demandé la synchro globale, ne pas repasser en mode "user"
+  // (sinon la page admin perd ses données à chaque refresh UI).
+  if (guessesMode === 'all') return
+  const uid = userid.trim()
+  if (!uid) return
+  if (guessesMode === 'user' && guessesUserid === uid) return
+
+  if (unsubGuesses) {
+    unsubGuesses()
+    unsubGuesses = null
+  }
+
+  guessesMode = 'user'
+  guessesUserid = uid
+  guessesCache = []
+
+  const d = getDb()
+  unsubGuesses = onSnapshot(
+    query(collection(d, 'guesses'), where('userid', '==', uid)),
+    (snap) => {
+      guessesCache = snap.docs.map(guessFromDoc)
+      notifyDataChanged()
+    },
+    (err) => {
+      console.error('[Guess my name] Firestore guesses user (onSnapshot):', err)
+    },
+  )
+}
+
+/** Admin : souscrit à tous les guesses (à utiliser uniquement sur la page admin). */
+export function startFirestoreSyncAllGuesses(): void {
+  if (guessesMode === 'all') return
+
+  if (unsubGuesses) {
+    unsubGuesses()
+    unsubGuesses = null
+  }
+
+  guessesMode = 'all'
+  guessesUserid = null
+  guessesCache = []
+
+  const d = getDb()
+  unsubGuesses = onSnapshot(
+    collection(d, 'guesses'),
+    (snap) => {
+      guessesCache = snap.docs.map(guessFromDoc)
+      notifyDataChanged()
+    },
+    (err) => {
+      console.error('[Guess my name] Firestore guesses all (onSnapshot):', err)
+    },
+  )
+}
+
+/** Admin : recharge immédiate de tous les guesses (une fois). */
+export async function pullAllGuessesOnceRemote(): Promise<void> {
+  const d = getDb()
+  const snap = await getDocs(collection(d, 'guesses'))
+  guessesCache = snap.docs.map(guessFromDoc)
+  notifyDataChanged()
+}
+
+/** Count agrégé (serveur) des guesses pour une énigme, sans charger la collection. */
+export async function countGuessesForEnigmeRemote(
+  enigmeid: string,
+): Promise<number> {
+  const id = enigmeid.trim()
+  if (!id) return 0
+  const d = getDb()
+  const q = query(collection(d, 'guesses'), where('enigmeid', '==', id))
+  const snap = await getCountFromServer(q)
+  return snap.data().count
 }
 
 function enigmeFromDoc(d: QueryDocumentSnapshot<DocumentData>): Enigme {

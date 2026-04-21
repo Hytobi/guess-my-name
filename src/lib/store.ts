@@ -1,6 +1,7 @@
 import type { Enigme, GuessListEntry, UserProfile } from '../types'
 import { useFirebaseBackend } from './dataMode'
 import {
+  countGuessesForEnigmeRemote,
   ensureUserProfileForNameRemote,
   findGuessInCache,
   getEnigmesSnapshot,
@@ -8,16 +9,23 @@ import {
   getMyConnectionCodeRemote,
   isCurrentUserAdminRemote,
   loginWithConnectionCodeRemote,
+  pullAllGuessesOnceRemote,
   registerUserNameRemote,
   saveEnigmesRemote,
   startFirestoreSync,
+  startFirestoreSyncAllGuesses,
+  startFirestoreSyncUserGuesses,
   updateUserDisplayNameRemote,
   upsertGuessFirestore,
 } from './storeFirebase'
 import * as L from './storeLocal'
 
 function ensureRemote(): void {
-  if (useFirebaseBackend()) startFirestoreSync()
+  if (!useFirebaseBackend()) return
+  startFirestoreSync()
+  // Important : côté joueur on ne charge que ses propres guesses.
+  const uid = L.readUserId() ?? L.getOrCreateUserId()
+  startFirestoreSyncUserGuesses(uid)
 }
 
 export {
@@ -143,4 +151,33 @@ export function setAdminSessionActive(active: boolean): void {
 
 export function checkAdminPassword(password: string): boolean {
   return L.checkAdminPassword(password)
+}
+
+/** Admin uniquement : bascule la synchro guesses en mode "tous". */
+export function enableAdminGuessesSync(): void {
+  if (!useFirebaseBackend()) return
+  ensureRemote()
+  startFirestoreSyncAllGuesses()
+}
+
+/** Admin : recharge immédiate des propositions (liste complète). */
+export async function reloadAllGuessesNow(): Promise<void> {
+  if (!useFirebaseBackend()) return
+  ensureRemote()
+  startFirestoreSyncAllGuesses()
+  await pullAllGuessesOnceRemote()
+}
+
+/** Nombre de propositions pour une énigme (sans charger tous les guesses côté joueur). */
+export async function countGuessesForEnigme(enigmeid: string): Promise<number> {
+  if (useFirebaseBackend()) {
+    ensureRemote()
+    return countGuessesForEnigmeRemote(enigmeid)
+  }
+  // Local : calcul direct sur le stockage local (tout est local de toute façon).
+  let n = 0
+  for (const g of L.loadGuessList()) {
+    if (g.enigmeid === enigmeid) n += 1
+  }
+  return Promise.resolve(n)
 }

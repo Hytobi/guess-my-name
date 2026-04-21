@@ -21,10 +21,12 @@ import {
 import {
   checkAdminPassword,
   countUsersWhoPlayedEnigme,
+  enableAdminGuessesSync,
   isCurrentUserAdmin,
   isAdminSessionActive,
   loadEnigmes,
   loadGuessList,
+  reloadAllGuessesNow,
   saveEnigmes,
   setAdminSessionActive,
 } from '../lib/store'
@@ -50,6 +52,7 @@ export function AdminPage() {
   const [file, setFile] = useState<File | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
   const [formOk, setFormOk] = useState<string | null>(null)
+  const [reloadHint, setReloadHint] = useState<string | null>(null)
 
   const refresh = useCallback(() => {
     setEnigmes(loadEnigmes())
@@ -61,6 +64,25 @@ export function AdminPage() {
     window.addEventListener('guess-my-name:data', onData)
     return () => window.removeEventListener('guess-my-name:data', onData)
   }, [refresh])
+
+  // Si on arrive sur /admin avec une session déjà active (refresh navigateur),
+  // on doit activer la synchro "tous les guesses".
+  useEffect(() => {
+    if (!logged) return
+    if (!useFirebaseBackend()) return
+    enableAdminGuessesSync()
+  }, [logged])
+
+  const handleReloadGuesses = async () => {
+    if (!logged) return
+    setReloadHint(null)
+    try {
+      await reloadAllGuessesNow()
+      setReloadHint('Propositions rechargées.')
+    } catch {
+      setReloadHint('Rechargement impossible. Réessayez.')
+    }
+  }
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault()
@@ -423,6 +445,21 @@ export function AdminPage() {
             Filtrez par la <strong>semaine ISO de la date de l’énigme</strong>, ou par
             texte (nom affiché ou identifiant utilisateur).
           </p>
+
+          <div className="admin-actions-row">
+            <button
+              type="button"
+              className="secondary narrow"
+              onClick={handleReloadGuesses}
+            >
+              Recharger les propositions
+            </button>
+            {reloadHint ? (
+              <p className="ok-hint" role="status">
+                {reloadHint}
+              </p>
+            ) : null}
+          </div>
 
           <div className="guess-admin-filters">
             <label className="filter-field">

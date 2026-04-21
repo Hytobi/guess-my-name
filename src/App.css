@@ -313,6 +313,14 @@
   background: var(--code-bg);
 }
 
+.admin-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  margin: 0.75rem 0 1rem;
+}
+
 .admin-tab {
   flex: 1 1 0;
   margin: 0;
