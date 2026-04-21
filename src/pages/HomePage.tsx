@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useUser } from '../context/UserContext'
 import { LoggedTopBar } from '../components/LoggedTopBar'
-import { isEnigmeVisibleOnHome } from '../lib/dates'
 import {
   countGuessesForEnigme,
   ensureUserProfileForName,
@@ -9,6 +8,7 @@ import {
   getOrCreateUserId,
   loadEnigmes,
   readUserId,
+  syncHomeEnigmesForToday,
   upsertGuess,
 } from '../lib/store'
 import { getCurrentWeeknumber } from '../lib/week'
@@ -57,10 +57,14 @@ export function HomePage() {
     void ensureUserProfileForName(name)
   }, [name])
 
+  useEffect(() => {
+    // Met à jour la requête Firestore "énigmes visibles" au changement de jour.
+    syncHomeEnigmesForToday()
+  }, [calendarTick])
+
   const visibles = useMemo(
     () =>
       enigmes
-        .filter((e) => isEnigmeVisibleOnHome(e.date))
         .sort((a, b) => {
           if (a.date < b.date) return 1
           if (a.date > b.date) return -1

@@ -29,30 +29,69 @@ function getDb(): Firestore {
 
 let enigmesCache: Enigme[] = []
 let guessesCache: GuessListEntry[] = []
-let startedEnigmes = false
+let enigmesMode: 'none' | 'home' | 'all' = 'none'
+let enigmesCutoffIsoDay: string | null = null
 let guessesMode: 'none' | 'user' | 'all' = 'none'
 let guessesUserid: string | null = null
+let unsubEnigmes: Unsubscribe | null = null
 let unsubGuesses: Unsubscribe | null = null
 
 export function startFirestoreSync(): void {
-  // Démarrage standard : énigmes + guesses du joueur courant.
-  startFirestoreSyncEnigmes()
+  // Démarrage standard : énigmes (mode home si configuré ailleurs) + guesses du joueur courant.
   const uid = readUserId() ?? getOrCreateUserId()
   startFirestoreSyncUserGuesses(uid)
 }
 
-export function startFirestoreSyncEnigmes(): void {
-  if (startedEnigmes) return
-  startedEnigmes = true
+/** Page joueur : ne charge que les énigmes dont `date <= cutoffIsoDay` (YYYY-MM-DD). */
+export function startFirestoreSyncHomeEnigmes(cutoffIsoDay: string): void {
+  const cutoff = cutoffIsoDay.trim()
+  if (!cutoff) return
+  if (enigmesMode === 'home' && enigmesCutoffIsoDay === cutoff) return
+
+  if (unsubEnigmes) {
+    unsubEnigmes()
+    unsubEnigmes = null
+  }
+
+  enigmesMode = 'home'
+  enigmesCutoffIsoDay = cutoff
+  enigmesCache = []
+
   const d = getDb()
-  onSnapshot(
+  unsubEnigmes = onSnapshot(
+    query(collection(d, 'enigmes'), where('date', '<=', cutoff)),
+    (snap) => {
+      enigmesCache = snap.docs.map(enigmeFromDoc)
+      notifyDataChanged()
+    },
+    (err) => {
+      console.error('[Guess my name] Firestore énigmes home (onSnapshot):', err)
+    },
+  )
+}
+
+/** Page admin : charge toutes les énigmes (y compris futures). */
+export function startFirestoreSyncAllEnigmes(): void {
+  if (enigmesMode === 'all') return
+
+  if (unsubEnigmes) {
+    unsubEnigmes()
+    unsubEnigmes = null
+  }
+
+  enigmesMode = 'all'
+  enigmesCutoffIsoDay = null
+  enigmesCache = []
+
+  const d = getDb()
+  unsubEnigmes = onSnapshot(
     collection(d, 'enigmes'),
     (snap) => {
       enigmesCache = snap.docs.map(enigmeFromDoc)
       notifyDataChanged()
     },
     (err) => {
-      console.error('[Guess my name] Firestore énigmes (onSnapshot):', err)
+      console.error('[Guess my name] Firestore énigmes all (onSnapshot):', err)
     },
   )
 }

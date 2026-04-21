@@ -1,5 +1,6 @@
 import type { Enigme, GuessListEntry, UserProfile } from '../types'
 import { useFirebaseBackend } from './dataMode'
+import { todayIsoDay } from './dates'
 import {
   countGuessesForEnigmeRemote,
   ensureUserProfileForNameRemote,
@@ -13,7 +14,9 @@ import {
   registerUserNameRemote,
   saveEnigmesRemote,
   startFirestoreSync,
+  startFirestoreSyncAllEnigmes,
   startFirestoreSyncAllGuesses,
+  startFirestoreSyncHomeEnigmes,
   startFirestoreSyncUserGuesses,
   updateUserDisplayNameRemote,
   upsertGuessFirestore,
@@ -23,6 +26,8 @@ import * as L from './storeLocal'
 function ensureRemote(): void {
   if (!useFirebaseBackend()) return
   startFirestoreSync()
+  // Home par défaut : ne charge que les énigmes visibles (date <= aujourd’hui).
+  startFirestoreSyncHomeEnigmes(todayIsoDay())
   // Important : côté joueur on ne charge que ses propres guesses.
   const uid = L.readUserId() ?? L.getOrCreateUserId()
   startFirestoreSyncUserGuesses(uid)
@@ -157,7 +162,16 @@ export function checkAdminPassword(password: string): boolean {
 export function enableAdminGuessesSync(): void {
   if (!useFirebaseBackend()) return
   ensureRemote()
+  // Admin : on veut toutes les énigmes + toutes les propositions.
+  startFirestoreSyncAllEnigmes()
   startFirestoreSyncAllGuesses()
+}
+
+/** Page joueur : met à jour la requête énigmes (au changement de jour). */
+export function syncHomeEnigmesForToday(): void {
+  if (!useFirebaseBackend()) return
+  ensureRemote()
+  startFirestoreSyncHomeEnigmes(todayIsoDay())
 }
 
 /** Admin : recharge immédiate des propositions (liste complète). */
