@@ -44,6 +44,9 @@ export function startFirestoreSync(): void {
 
 /** Page joueur : ne charge que les énigmes dont `date <= cutoffIsoDay` (YYYY-MM-DD). */
 export function startFirestoreSyncHomeEnigmes(cutoffIsoDay: string): void {
+  // Si l’admin a demandé toutes les énigmes, ne pas repasser en mode "home"
+  // lors d’un refresh UI (sinon on perd les énigmes futures).
+  if (enigmesMode === 'all') return
   const cutoff = cutoffIsoDay.trim()
   if (!cutoff) return
   if (enigmesMode === 'home' && enigmesCutoffIsoDay === cutoff) return
@@ -190,12 +193,15 @@ function guessFromDoc(d: QueryDocumentSnapshot<DocumentData>): GuessListEntry {
   const raw = d.data()
   const userName =
     typeof raw.userName === 'string' ? raw.userName : undefined
+  const updatedAtMs =
+    typeof raw.updatedAtMs === 'number' ? raw.updatedAtMs : undefined
   return {
     guesslistid: d.id,
     userid: String(raw.userid ?? ''),
     weeknumber: Number(raw.weeknumber ?? 0),
     guess: String(raw.guess ?? ''),
     enigmeid: String(raw.enigmeid ?? ''),
+    ...(updatedAtMs !== undefined ? { updatedAtMs } : {}),
     ...(userName !== undefined ? { userName } : {}),
   }
 }
@@ -219,6 +225,7 @@ function guessToData(g: GuessListEntry): Record<string, unknown> {
     enigmeid: g.enigmeid,
   }
   if (g.userName) o.userName = g.userName
+  if (typeof g.updatedAtMs === 'number') o.updatedAtMs = g.updatedAtMs
   return o
 }
 
@@ -392,6 +399,7 @@ export function upsertGuessFirestore(params: {
 }): GuessListEntry {
   const d = getDb()
   const trimmed = params.guess.trim()
+  const now = Date.now()
   const existing = guessesCache.find(
     (g) =>
       g.userid === params.userid &&
@@ -405,6 +413,7 @@ export function upsertGuessFirestore(params: {
     weeknumber: params.weeknumber,
     enigmeid: params.enigmeid,
     guess: trimmed,
+    updatedAtMs: now,
   }
   if (params.userName !== undefined) {
     const t = params.userName.trim()

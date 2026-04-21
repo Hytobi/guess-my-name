@@ -162,9 +162,14 @@ export function checkAdminPassword(password: string): boolean {
 export function enableAdminGuessesSync(): void {
   if (!useFirebaseBackend()) return
   ensureRemote()
-  // Admin : on veut toutes les énigmes + toutes les propositions.
-  startFirestoreSyncAllEnigmes()
   startFirestoreSyncAllGuesses()
+}
+
+/** Admin : charge toutes les énigmes (y compris futures) sans charger tous les guesses. */
+export function enableAdminEnigmesSync(): void {
+  if (!useFirebaseBackend()) return
+  ensureRemote()
+  startFirestoreSyncAllEnigmes()
 }
 
 /** Page joueur : met à jour la requête énigmes (au changement de jour). */

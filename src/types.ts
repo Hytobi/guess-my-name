@@ -27,6 +27,8 @@ export type GuessListEntry = {
   weeknumber: number
   guess: string
   enigmeid: string
+  /** Timestamp (ms) utile pour tri admin (Firebase: updateTime). */
+  updatedAtMs?: number
   /**
    * Nom affiché du joueur au moment de l’enregistrement (dénormalisé pour l’admin
    * hors Firebase ; à terme jointure user.name).

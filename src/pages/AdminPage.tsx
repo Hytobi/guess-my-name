@@ -21,6 +21,7 @@ import {
 import {
   checkAdminPassword,
   countUsersWhoPlayedEnigme,
+  enableAdminEnigmesSync,
   enableAdminGuessesSync,
   isCurrentUserAdmin,
   isAdminSessionActive,
@@ -50,6 +51,8 @@ export function AdminPage() {
   const [date, setDate] = useState(() => todayIsoDay())
   const [message, setMessage] = useState('')
   const [file, setFile] = useState<File | null>(null)
+  const [editingEnigmeId, setEditingEnigmeId] = useState<string | null>(null)
+  const [editingOriginal, setEditingOriginal] = useState<Enigme | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
   const [formOk, setFormOk] = useState<string | null>(null)
   const [reloadHint, setReloadHint] = useState<string | null>(null)
@@ -66,12 +69,20 @@ export function AdminPage() {
   }, [refresh])
 
   // Si on arrive sur /admin avec une session déjà active (refresh navigateur),
-  // on doit activer la synchro "tous les guesses".
+  // on doit activer la synchro "toutes les énigmes" (y compris futures).
   useEffect(() => {
     if (!logged) return
     if (!useFirebaseBackend()) return
-    enableAdminGuessesSync()
+    enableAdminEnigmesSync()
   }, [logged])
+
+  // Les propositions (guesses) complètes ne sont chargées que sur l’onglet "Propositions".
+  useEffect(() => {
+    if (!logged) return
+    if (!useFirebaseBackend()) return
+    if (section !== 'propositions') return
+    enableAdminGuessesSync()
+  }, [logged, section])
 
   const handleReloadGuesses = async () => {
     if (!logged) return
@@ -128,7 +139,30 @@ export function AdminPage() {
     setLogged(false)
   }
 
-  const handleAddEnigme = async (e: FormEvent) => {
+  const resetEnigmeForm = () => {
+    setEditingEnigmeId(null)
+    setEditingOriginal(null)
+    setLibelle('')
+    setMessage('')
+    setFile(null)
+    setDate(todayIsoDay())
+  }
+
+  const handleEditEnigme = (en: Enigme) => {
+    setFormError(null)
+    setFormOk(null)
+    setEditingEnigmeId(en.enigmeid)
+    setEditingOriginal(en)
+    setLibelle(en.libelle)
+    setDate(en.date)
+    setMessage(en.message)
+    setFile(null)
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'smooth' })
+    })
+  }
+
+  const handleSaveEnigme = async (e: FormEvent) => {
     e.preventDefault()
     setFormError(null)
     setFormOk(null)
@@ -142,8 +176,9 @@ export function AdminPage() {
       return
     }
 
-    let nomFichier = ''
-    let imageDataUrl: string | null = null
+    let nomFichier = editingOriginal?.nomFichier ?? ''
+    let imageDataUrl: string | null =
+      (editingOriginal?.imageDataUrl as string | null | undefined) ?? null
 
     if (file) {
       nomFichier = file.name
@@ -162,8 +197,8 @@ export function AdminPage() {
       }
     }
 
-    const next: Enigme = {
-      enigmeid: crypto.randomUUID(),
+    const base: Enigme = {
+      enigmeid: editingEnigmeId ?? crypto.randomUUID(),
       libelle: L,
       date,
       nomFichier,
@@ -172,12 +207,13 @@ export function AdminPage() {
     }
 
     const list = loadEnigmes()
-    await saveEnigmes([next, ...list])
-    setLibelle('')
-    setMessage('')
-    setFile(null)
-    setDate(todayIsoDay())
-    setFormOk('Énigme enregistrée.')
+    const nextList =
+      editingEnigmeId == null
+        ? [base, ...list]
+        : [base, ...list.filter((x) => x.enigmeid !== editingEnigmeId)]
+    await saveEnigmes(nextList)
+    resetEnigmeForm()
+    setFormOk(editingEnigmeId ? 'Énigme modifiée.' : 'Énigme enregistrée.')
     refresh()
   }
 
@@ -222,6 +258,9 @@ export function AdminPage() {
       })
     }
     return [...rows].sort((a, b) => {
+      const ta = a.updatedAtMs ?? 0
+      const tb = b.updatedAtMs ?? 0
+      if (tb !== ta) return tb - ta
       const wa =
         enigmeById.get(a.enigmeid)?.date != null
           ? getWeeknumberFromIsoDate(enigmeById.get(a.enigmeid)!.date)
@@ -234,12 +273,11 @@ export function AdminPage() {
       if (wa == null && wb != null) return 1
       if (wa != null && wb == null) return -1
       if (b.weeknumber !== a.weeknumber) return b.weeknumber - a.weeknumber
-      const na = (a.userName ?? '').toLowerCase()
-      const nb = (b.userName ?? '').toLowerCase()
-      if (na !== nb) return na.localeCompare(nb, 'fr')
       const la = enigmeById.get(a.enigmeid)?.libelle ?? ''
       const lb = enigmeById.get(b.enigmeid)?.libelle ?? ''
-      return la.localeCompare(lb, 'fr')
+      if (la !== lb) return la.localeCompare(lb, 'fr')
+      // Dernier recours stable : id (évite un tri par nom de joueur).
+      return b.guesslistid.localeCompare(a.guesslistid)
     })
   }, [enigmeById, guessNameFilter, guessWeekFilter, guesses])
 
@@ -336,8 +374,8 @@ export function AdminPage() {
             aria-labelledby="admin-tab-enigmes"
           >
         <section className="panel">
-          <h2>Nouvelle énigme</h2>
-          <form className="admin-form" onSubmit={handleAddEnigme}>
+          <h2>{editingEnigmeId ? 'Modifier une énigme' : 'Nouvelle énigme'}</h2>
+          <form className="admin-form" onSubmit={handleSaveEnigme}>
             <label>
               Libellé (titre)
               <input
@@ -383,9 +421,20 @@ export function AdminPage() {
                 {formOk}
               </p>
             ) : null}
-            <button type="submit" className="primary narrow">
-              Ajouter l’énigme
-            </button>
+            <div className="admin-actions-row">
+              <button type="submit" className="primary narrow">
+                {editingEnigmeId ? 'Modifier l’énigme' : 'Ajouter l’énigme'}
+              </button>
+              {editingEnigmeId ? (
+                <button
+                  type="button"
+                  className="secondary narrow"
+                  onClick={resetEnigmeForm}
+                >
+                  Annuler
+                </button>
+              ) : null}
+            </div>
           </form>
         </section>
 
@@ -419,6 +468,13 @@ export function AdminPage() {
                       </span>
                       <p className="admin-msg-preview">{en.message}</p>
                     </div>
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => handleEditEnigme(en)}
+                    >
+                      Modifier
+                    </button>
                     <button
                       type="button"
                       className="secondary danger"

@@ -209,6 +209,8 @@ function isGuessShape(x: unknown): x is GuessListEntry {
   ) {
     return false
   }
+  if (o.updatedAtMs !== undefined && typeof o.updatedAtMs !== 'number')
+    return false
   if (o.userName !== undefined && typeof o.userName !== 'string') return false
   return true
 }
@@ -246,10 +248,11 @@ export function upsertGuess(params: {
       g.enigmeid === params.enigmeid,
   )
   const trimmed = params.guess.trim()
+  const now = Date.now()
 
   if (idx >= 0) {
     const prev = all[idx]
-    const updated: GuessListEntry = { ...prev, guess: trimmed }
+    const updated: GuessListEntry = { ...prev, guess: trimmed, updatedAtMs: now }
     if (params.userName !== undefined) {
       const t = params.userName.trim()
       updated.userName = t || undefined
@@ -265,6 +268,7 @@ export function upsertGuess(params: {
     weeknumber: params.weeknumber,
     enigmeid: params.enigmeid,
     guess: trimmed,
+    updatedAtMs: now,
   }
   if (params.userName !== undefined) {
     const t = params.userName.trim()
