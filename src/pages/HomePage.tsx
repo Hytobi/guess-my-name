@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useUser } from '../context/UserContext'
 import { LoggedTopBar } from '../components/LoggedTopBar'
+import { useDispatch, useSelector } from 'react-redux'
 import {
   countGuessesForEnigme,
   ensureUserProfileForName,
@@ -8,16 +9,25 @@ import {
   getOrCreateUserId,
   loadEnigmes,
   readUserId,
+  enableAdminEnigmesSync,
+  forceSyncHomeEnigmesForToday,
   syncHomeEnigmesForToday,
   upsertGuess,
 } from '../lib/store'
+import { setViewAsPlayer } from '../state/adminSlice'
+import type { RootState } from '../state/store'
 import { getCurrentWeeknumber } from '../lib/week'
+import { useFirebaseBackend } from '../lib/dataMode'
 
 const DATA_EVENT = 'guess-my-name:data'
 
 export function HomePage() {
   const { name } = useUser()
   const userid = readUserId() ?? getOrCreateUserId()
+  const dispatch = useDispatch()
+  const isAdminVerified = useSelector((s: RootState) => s.admin.isAdminVerified)
+  const viewAsPlayer = useSelector((s: RootState) => s.admin.viewAsPlayer)
+  const usingFirebase = useFirebaseBackend()
 
   /** Recalcul périodique pour que la semaine ISO suive le calendrier (onglet ouvert plusieurs jours). */
   const [calendarTick, setCalendarTick] = useState(0)
@@ -58,9 +68,17 @@ export function HomePage() {
   }, [name])
 
   useEffect(() => {
-    // Met à jour la requête Firestore "énigmes visibles" au changement de jour.
-    syncHomeEnigmesForToday()
-  }, [calendarTick])
+    if (!usingFirebase) return
+    // Met à jour la requête Firestore au changement de jour
+    // + lorsqu’on bascule entre "visu admin" et "visu non-admin".
+    if (isAdminVerified && !viewAsPlayer) {
+      enableAdminEnigmesSync()
+    } else if (isAdminVerified && viewAsPlayer) {
+      forceSyncHomeEnigmesForToday()
+    } else {
+      syncHomeEnigmesForToday()
+    }
+  }, [calendarTick, isAdminVerified, viewAsPlayer, usingFirebase])
 
   const visibles = useMemo(
     () =>
@@ -150,6 +168,32 @@ export function HomePage() {
       <LoggedTopBar />
 
       <main className="main-content">
+        {!usingFirebase ? (
+          <p className="empty-state" role="note">
+            Données locales (pas de Firebase configuré pour ce build).
+          </p>
+        ) : null}
+        {isAdminVerified ? (
+          <section className="panel" aria-label="Aperçu admin">
+            <div className="admin-actions-row">
+              <button
+                type="button"
+                className="secondary narrow"
+                onClick={() => {
+                  dispatch(setViewAsPlayer(!viewAsPlayer))
+                }}
+              >
+                {viewAsPlayer ? 'Revenir en mode admin' : 'Voir comme un non-admin'}
+              </button>
+              {viewAsPlayer ? (
+                <p className="ok-hint" role="status">
+                  Aperçu non-admin activé (certains éléments admin sont masqués).
+                </p>
+              ) : null}
+            </div>
+          </section>
+        ) : null}
+
         {savedHint ? (
           <p className="ok-hint ok-hint-top" role="status">
             {savedHint}

@@ -13,6 +13,7 @@ import {
   pullAllGuessesOnceRemote,
   registerUserNameRemote,
   saveEnigmesRemote,
+  forceFirestoreSyncHomeEnigmes,
   startFirestoreSync,
   startFirestoreSyncAllEnigmes,
   startFirestoreSyncAllGuesses,
@@ -146,14 +147,6 @@ export async function isCurrentUserAdmin(): Promise<boolean> {
   return isCurrentUserAdminRemote()
 }
 
-export function isAdminSessionActive(): boolean {
-  return L.isAdminSessionActive()
-}
-
-export function setAdminSessionActive(active: boolean): void {
-  L.setAdminSessionActive(active)
-}
-
 export function checkAdminPassword(password: string): boolean {
   return L.checkAdminPassword(password)
 }
@@ -177,6 +170,13 @@ export function syncHomeEnigmesForToday(): void {
   if (!useFirebaseBackend()) return
   ensureRemote()
   startFirestoreSyncHomeEnigmes(todayIsoDay())
+}
+
+/** Force le mode "home" (utile après une visu admin -> retour player). */
+export function forceSyncHomeEnigmesForToday(): void {
+  if (!useFirebaseBackend()) return
+  ensureRemote()
+  forceFirestoreSyncHomeEnigmes(todayIsoDay())
 }
 
 /** Admin : recharge immédiate des propositions (liste complète). */

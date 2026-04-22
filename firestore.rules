@@ -1,11 +1,21 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // MVP : ouvert en lecture/écriture. À restreindre (Auth + rôles admin) avant mise en ligne réelle.
+    function isAdmin() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.enabled == true;
+    }
+
+    // Énigmes : lecture publique, écriture réservée aux admins Firebase.
     match /enigmes/{id} {
-    allow write: if request.auth.uid == 'wcF8IIGP3pSXOKavt455kKunRj63';
-    allow read: if true;
-		}
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // TODO sécurité: `guesses` et `users` sont encore ouverts (MVP).
+    // Pour une sécurité complète, il faut lier les joueurs à Firebase Auth
+    // et appliquer des règles basées sur request.auth.uid.
     match /guesses/{id} {
       allow read, write: if true;
     }

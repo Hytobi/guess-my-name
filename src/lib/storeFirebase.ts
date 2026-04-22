@@ -16,6 +16,7 @@ import {
   type Firestore,
   type QueryDocumentSnapshot,
 } from 'firebase/firestore'
+import { getAuth } from 'firebase/auth'
 import type { Enigme, GuessListEntry, UserProfile } from '../types'
 import { firebaseApp } from './firebase'
 import { getOrCreateUserId, readUserId, setUserId } from './storeLocal'
@@ -50,6 +51,36 @@ export function startFirestoreSyncHomeEnigmes(cutoffIsoDay: string): void {
   const cutoff = cutoffIsoDay.trim()
   if (!cutoff) return
   if (enigmesMode === 'home' && enigmesCutoffIsoDay === cutoff) return
+
+  if (unsubEnigmes) {
+    unsubEnigmes()
+    unsubEnigmes = null
+  }
+
+  enigmesMode = 'home'
+  enigmesCutoffIsoDay = cutoff
+  enigmesCache = []
+
+  const d = getDb()
+  unsubEnigmes = onSnapshot(
+    query(collection(d, 'enigmes'), where('date', '<=', cutoff)),
+    (snap) => {
+      enigmesCache = snap.docs.map(enigmeFromDoc)
+      notifyDataChanged()
+    },
+    (err) => {
+      console.error('[Guess my name] Firestore énigmes home (onSnapshot):', err)
+    },
+  )
+}
+
+/**
+ * Forcer le mode "home" même si une session admin avait activé `all`.
+ * Utile pour le switch "voir comme non-admin" sur la home.
+ */
+export function forceFirestoreSyncHomeEnigmes(cutoffIsoDay: string): void {
+  const cutoff = cutoffIsoDay.trim()
+  if (!cutoff) return
 
   if (unsubEnigmes) {
     unsubEnigmes()
@@ -378,15 +409,21 @@ export async function updateUserDisplayNameRemote(
 
 /**
  * Autorisation admin côté client (contrôle supplémentaire).
- * On considère admin uniquement si `users/{userid}.isAdmin === true`.
- * Champ absent => false (comportement demandé pour les comptes existants).
+ * Source "sécurisée" (recommandée) : Firebase Auth + doc `admins/{auth.uid}.enabled === true`.
+ * Fallback legacy : `users/{userid}.isAdmin === true` (si tu utilises encore cette colonne).
  */
 export async function isCurrentUserAdminRemote(): Promise<boolean> {
-  const uid = readUserId()
-  if (!uid) return false
-  const snap = await getDoc(doc(getDb(), 'users', uid))
-  if (!snap.exists()) return false
-  return snap.data()?.isAdmin === true
+  const authUid = getAuth(firebaseApp).currentUser?.uid
+  if (authUid) {
+    const adminSnap = await getDoc(doc(getDb(), 'admins', authUid))
+    if (adminSnap.exists() && adminSnap.data()?.enabled === true) return true
+  }
+
+  const userid = readUserId()
+  if (!userid) return false
+  const userSnap = await getDoc(doc(getDb(), 'users', userid))
+  if (!userSnap.exists()) return false
+  return userSnap.data()?.isAdmin === true
 }
 
 /** Mise à jour optimiste du cache + persistance Firestore (API synchrone côté store). */

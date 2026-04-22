@@ -24,13 +24,14 @@ import {
   enableAdminEnigmesSync,
   enableAdminGuessesSync,
   isCurrentUserAdmin,
-  isAdminSessionActive,
   loadEnigmes,
   loadGuessList,
   reloadAllGuessesNow,
   saveEnigmes,
-  setAdminSessionActive,
 } from '../lib/store'
+import { useDispatch, useSelector } from 'react-redux'
+import { setAdminVerified } from '../state/adminSlice'
+import type { RootState } from '../state/store'
 
 const MAX_DATA_URL_CHARS = 400_000
 
@@ -38,10 +39,29 @@ type AdminSection = 'enigmes' | 'propositions'
 
 export function AdminPage() {
   const { name: playerName } = useUser()
-  const [logged, setLogged] = useState(isAdminSessionActive)
+  const dispatch = useDispatch()
+  const logged = useSelector((s: RootState) => s.admin.isAdminVerified)
   const [section, setSection] = useState<AdminSection>('propositions')
   const [password, setPassword] = useState('')
   const [loginError, setLoginError] = useState<string | null>(null)
+
+  // Si Redux repart à zéro après un refresh mais que Firebase Auth a encore une session admin,
+  // on recalcule l’état côté client (uniquement si le backend Firebase est actif).
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      if (!useFirebaseBackend()) return
+      try {
+        const ok = await isCurrentUserAdmin()
+        if (!cancelled) dispatch(setAdminVerified(ok))
+      } catch {
+        if (!cancelled) dispatch(setAdminVerified(false))
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [dispatch])
 
   const [enigmes, setEnigmes] = useState<Enigme[]>(loadEnigmes)
   const [guesses, setGuesses] = useState<GuessListEntry[]>(loadGuessList)
@@ -129,14 +149,12 @@ export function AdminPage() {
       }
     }
 
-    setAdminSessionActive(true)
-    setLogged(true)
+    dispatch(setAdminVerified(true))
   }
 
   const handleLogout = async () => {
     await signOutFirebaseAdmin()
-    setAdminSessionActive(false)
-    setLogged(false)
+    dispatch(setAdminVerified(false))
   }
 
   const resetEnigmeForm = () => {

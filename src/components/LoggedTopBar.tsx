@@ -1,8 +1,13 @@
 import { Link, NavLink } from 'react-router-dom'
 import { useUser } from '../context/UserContext'
+import { useSelector } from 'react-redux'
+import type { RootState } from '../state/store'
 
 export function LoggedTopBar() {
   const { name } = useUser()
+  const showAdminLink = useSelector(
+    (s: RootState) => s.admin.isAdminVerified && !s.admin.viewAsPlayer,
+  )
 
   return (
     <header className="topbar">
@@ -19,9 +24,11 @@ export function LoggedTopBar() {
         >
           Mon profil
         </NavLink>
-        <Link to="/admin" className="topbar-link">
-          Administration
-        </Link>
+        {showAdminLink ? (
+          <Link to="/admin" className="topbar-link">
+            Administration
+          </Link>
+        ) : null}
       </nav>
     </header>
   )

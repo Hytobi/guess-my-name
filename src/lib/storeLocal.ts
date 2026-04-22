@@ -5,7 +5,6 @@ const KEY_USER_ID = 'guess-my-name:userid'
 const KEY_USERS = 'guess-my-name:users'
 const KEY_ENIGMES = 'guess-my-name:enigmes'
 const KEY_GUESS_LIST = 'guess-my-name:guessList'
-const KEY_ADMIN = 'guess-my-name:adminSession'
 
 function safeParseJson<T>(raw: string | null, fallback: T): T {
   if (raw == null || raw === '') return fallback
@@ -276,23 +275,6 @@ export function upsertGuess(params: {
   }
   saveGuessList([...all, created])
   return created
-}
-
-export function isAdminSessionActive(): boolean {
-  try {
-    return sessionStorage.getItem(KEY_ADMIN) === '1'
-  } catch {
-    return false
-  }
-}
-
-export function setAdminSessionActive(active: boolean): void {
-  try {
-    if (active) sessionStorage.setItem(KEY_ADMIN, '1')
-    else sessionStorage.removeItem(KEY_ADMIN)
-  } catch {
-    /* ignore */
-  }
 }
 
 export function checkAdminPassword(password: string): boolean {
