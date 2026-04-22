@@ -6,7 +6,7 @@ import type { RootState } from '../state/store'
 export function LoggedTopBar() {
   const { name } = useUser()
   const showAdminLink = useSelector(
-    (s: RootState) => s.admin.isAdminVerified && !s.admin.viewAsPlayer,
+    (s: RootState) => s.admin.isAdminVerified ,
   )
 
   return (

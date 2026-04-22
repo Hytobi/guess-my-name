@@ -18,7 +18,9 @@ export const adminSlice = createSlice({
   reducers: {
     setAdminVerified(state, action: PayloadAction<boolean>) {
       state.isAdminVerified = action.payload
-      if (!action.payload) state.viewAsPlayer = false
+      // Par défaut, un admin voit l’app "comme un non-admin" (sécurité/UX).
+      if (action.payload) state.viewAsPlayer = true
+      else state.viewAsPlayer = false
     },
     setViewAsPlayer(state, action: PayloadAction<boolean>) {
       if (!state.isAdminVerified) {
