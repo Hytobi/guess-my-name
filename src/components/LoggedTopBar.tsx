@@ -25,7 +25,7 @@ export function LoggedTopBar() {
           Mon profil
         </NavLink>
         {showAdminLink ? (
-          <Link to="/admin" className="topbar-link">
+          <Link to="/nova" className="topbar-link">
             Administration
           </Link>
         ) : null}

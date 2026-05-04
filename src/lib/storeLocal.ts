@@ -56,45 +56,24 @@ function loadUsers(): UserProfile[] {
   try {
     const list = safeParseJson<unknown>(localStorage.getItem(KEY_USERS), [])
     if (!Array.isArray(list)) return []
-    return list.filter(isUserProfileShape)
+    // Migration soft: anciens profils pouvaient contenir `codeconnexion` (ignoré).
+    return list
+      .map((x) => {
+        if (!x || typeof x !== 'object') return null
+        const o = x as Record<string, unknown>
+        const userid = typeof o.userid === 'string' ? o.userid : ''
+        const name = typeof o.name === 'string' ? o.name : ''
+        if (!userid || !name) return null
+        return { userid, name } satisfies UserProfile
+      })
+      .filter((x): x is UserProfile => x != null)
   } catch {
     return []
   }
 }
 
-function isUserProfileShape(x: unknown): x is UserProfile {
-  if (!x || typeof x !== 'object') return false
-  const o = x as Record<string, unknown>
-  return (
-    typeof o.userid === 'string' &&
-    typeof o.name === 'string' &&
-    typeof o.codeconnexion === 'string' &&
-    /^\d{8}$/.test(o.codeconnexion)
-  )
-}
-
 function saveUsers(users: UserProfile[]): void {
   localStorage.setItem(KEY_USERS, JSON.stringify(users))
-}
-
-function randomEightDigitCode(): string {
-  let s = ''
-  for (let i = 0; i < 8; i += 1) s += String(Math.floor(Math.random() * 10))
-  return s
-}
-
-function pickUniqueConnectionCode(excludeForReuse: string | null): string {
-  const users = loadUsers()
-  const used = new Set(
-    users
-      .map((u) => u.codeconnexion)
-      .filter((c) => c !== excludeForReuse),
-  )
-  for (let n = 0; n < 200; n += 1) {
-    const c = randomEightDigitCode()
-    if (!used.has(c)) return c
-  }
-  return `${Date.now()}`.slice(-8).padStart(8, '0')
 }
 
 export function registerUserName(name: string): UserProfile {
@@ -102,9 +81,7 @@ export function registerUserName(name: string): UserProfile {
   const userid = getOrCreateUserId()
   const users = loadUsers()
   const idx = users.findIndex((u) => u.userid === userid)
-  const previousCode = idx >= 0 ? users[idx].codeconnexion : null
-  const code = pickUniqueConnectionCode(previousCode)
-  const row: UserProfile = { userid, name: t, codeconnexion: code }
+  const row: UserProfile = { userid, name: t }
   if (idx >= 0) {
     const next = [...users]
     next[idx] = row
@@ -115,7 +92,7 @@ export function registerUserName(name: string): UserProfile {
   return row
 }
 
-/** Met à jour uniquement le nom affiché ; le code à 8 chiffres est conservé. */
+/** Met à jour uniquement le nom affiché. */
 export function updateUserDisplayName(name: string): UserProfile | null {
   const t = name.trim()
   if (!t) return null
@@ -133,30 +110,13 @@ export function updateUserDisplayName(name: string): UserProfile | null {
   return row
 }
 
-export function loginWithConnectionCode(raw: string): UserProfile | null {
-  const normalized = raw.replace(/\s+/g, '')
-  if (!/^\d{8}$/.test(normalized)) return null
-  const users = loadUsers()
-  const u = users.find((x) => x.codeconnexion === normalized)
-  if (!u) return null
-  setUserId(u.userid)
-  return u
-}
-
-export function getMyConnectionCode(): string | null {
-  const uid = readUserId()
-  if (!uid) return null
-  return loadUsers().find((x) => x.userid === uid)?.codeconnexion ?? null
-}
-
 export function ensureUserProfileForName(name: string): void {
   const t = name.trim()
   if (!t) return
   const uid = readUserId() ?? getOrCreateUserId()
   const users = loadUsers()
   if (users.some((u) => u.userid === uid)) return
-  const code = pickUniqueConnectionCode(null)
-  saveUsers([...users, { userid: uid, name: t, codeconnexion: code }])
+  saveUsers([...users, { userid: uid, name: t }])
 }
 
 export function loadEnigmes(): Enigme[] {

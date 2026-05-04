@@ -6,9 +6,7 @@ import {
   countGuessesForEnigme,
   ensureUserProfileForName,
   findGuess,
-  getOrCreateUserId,
   loadEnigmes,
-  readUserId,
   enableAdminEnigmesSync,
   forceSyncHomeEnigmesForToday,
   syncHomeEnigmesForToday,
@@ -23,8 +21,8 @@ import { EnigmeImage } from '../components/EnigmeImage'
 const DATA_EVENT = 'guess-my-name:data'
 
 export function HomePage() {
-  const { name } = useUser()
-  const userid = readUserId() ?? getOrCreateUserId()
+  const { name, user } = useUser()
+  const userid = user?.uid ?? ''
   const dispatch = useDispatch()
   const isAdminVerified = useSelector((s: RootState) => s.admin.isAdminVerified)
   const viewAsPlayer = useSelector((s: RootState) => s.admin.viewAsPlayer)
@@ -99,6 +97,10 @@ export function HomePage() {
   useEffect(() => {
     let cancelled = false
     void (async () => {
+      if (!isAdminVerified || viewAsPlayer) {
+        if (!cancelled) setEnigmeCounts({})
+        return
+      }
       const next: Record<string, number> = {}
       for (const e of visibles) {
         try {
@@ -112,7 +114,7 @@ export function HomePage() {
     return () => {
       cancelled = true
     }
-  }, [visibles])
+  }, [isAdminVerified, viewAsPlayer, visibles])
 
   const isGuessLocked = useCallback(
     (enigmeid: string): boolean => {
@@ -143,7 +145,6 @@ export function HomePage() {
     const text = drafts[enigmeid] ?? ''
     const weekAtSave = getCurrentWeeknumber()
     upsertGuess({
-      userid,
       weeknumber: weekAtSave,
       enigmeid,
       guess: text,
@@ -216,13 +217,15 @@ export function HomePage() {
               {visibles.map((e) => {
                 const locked = isGuessLocked(e.enigmeid)
                 const isLatest = e.enigmeid === latestVisibleEnigmeId
-                const count = enigmeCounts[e.enigmeid] ?? 0
+                const canSeeCounts = isAdminVerified && !viewAsPlayer
+                const count = canSeeCounts ? (enigmeCounts[e.enigmeid] ?? 0) : 0
                 const countLabel = `NB propositions : ${count}`
                 return (
                   <li key={e.enigmeid} className="enigme-card">
                     <div className="enigme-card-head">
                       <h3 className="enigme-title-with-stats">
                         <span className="enigme-libelle">{e.libelle}</span>
+                        {canSeeCounts ? (
                           <span
                             className="enigme-player-count"
                             aria-label={`Nombre de propositions enregistrées : ${count}`}
@@ -230,6 +233,7 @@ export function HomePage() {
                             {' '}
                             ({countLabel})
                           </span>
+                        ) : null}
                       </h3>
                       <time dateTime={e.date}>{e.date}</time>
                     </div>

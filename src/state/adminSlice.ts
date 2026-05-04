@@ -1,7 +1,7 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
 
 type AdminState = {
-  /** True uniquement après vérification (Firebase Auth + users/{uid}.isAdmin). */
+  /** True uniquement après vérification (Firebase Auth + admins/{uid}.enabled). */
   isAdminVerified: boolean
   /** Mode UI : masquer les éléments admin quand on est admin. */
   viewAsPlayer: boolean

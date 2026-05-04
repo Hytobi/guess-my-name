@@ -7,9 +7,7 @@ import {
   findGuessInCache,
   getEnigmesSnapshot,
   getGuessesSnapshot,
-  getMyConnectionCodeRemote,
   isCurrentUserAdminRemote,
-  loginWithConnectionCodeRemote,
   pullAllGuessesOnceRemote,
   registerUserNameRemote,
   saveEnigmesRemote,
@@ -18,7 +16,6 @@ import {
   startFirestoreSyncAllEnigmes,
   startFirestoreSyncAllGuesses,
   startFirestoreSyncHomeEnigmes,
-  startFirestoreSyncUserGuesses,
   updateUserDisplayNameRemote,
   upsertGuessFirestore,
 } from './storeFirebase'
@@ -29,9 +26,6 @@ function ensureRemote(): void {
   startFirestoreSync()
   // Home par défaut : ne charge que les énigmes visibles (date <= aujourd’hui).
   startFirestoreSyncHomeEnigmes(todayIsoDay())
-  // Important : côté joueur on ne charge que ses propres guesses.
-  const uid = L.readUserId() ?? L.getOrCreateUserId()
-  startFirestoreSyncUserGuesses(uid)
 }
 
 export {
@@ -83,7 +77,7 @@ export function findGuess(
 }
 
 export function upsertGuess(params: {
-  userid: string
+  userid?: string
   weeknumber: number
   enigmeid: string
   guess: string
@@ -91,8 +85,19 @@ export function upsertGuess(params: {
 }): GuessListEntry {
   ensureRemote()
   return useFirebaseBackend()
-    ? upsertGuessFirestore(params)
-    : L.upsertGuess(params)
+    ? upsertGuessFirestore({
+        weeknumber: params.weeknumber,
+        enigmeid: params.enigmeid,
+        guess: params.guess,
+        userName: params.userName,
+      })
+    : L.upsertGuess({
+        userid: params.userid ?? L.readUserId() ?? L.getOrCreateUserId(),
+        weeknumber: params.weeknumber,
+        enigmeid: params.enigmeid,
+        guess: params.guess,
+        userName: params.userName,
+      })
 }
 
 export async function registerUserName(name: string): Promise<UserProfile> {
@@ -101,24 +106,6 @@ export async function registerUserName(name: string): Promise<UserProfile> {
     return registerUserNameRemote(name)
   }
   return Promise.resolve(L.registerUserName(name))
-}
-
-export async function loginWithConnectionCode(
-  raw: string,
-): Promise<UserProfile | null> {
-  if (useFirebaseBackend()) {
-    ensureRemote()
-    return loginWithConnectionCodeRemote(raw)
-  }
-  return Promise.resolve(L.loginWithConnectionCode(raw))
-}
-
-export async function getMyConnectionCode(): Promise<string | null> {
-  if (useFirebaseBackend()) {
-    ensureRemote()
-    return getMyConnectionCodeRemote()
-  }
-  return Promise.resolve(L.getMyConnectionCode())
 }
 
 export async function ensureUserProfileForName(name: string): Promise<void> {
@@ -130,7 +117,7 @@ export async function ensureUserProfileForName(name: string): Promise<void> {
   L.ensureUserProfileForName(name)
 }
 
-/** Met à jour le pseudo affiché sans changer le code à 8 chiffres. */
+/** Met à jour le nom affiché. */
 export async function updateUserDisplayName(
   name: string,
 ): Promise<UserProfile | null> {

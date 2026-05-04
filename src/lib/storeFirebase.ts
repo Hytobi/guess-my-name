@@ -5,7 +5,6 @@ import {
   getDoc,
   getDocs,
   getFirestore,
-  limit,
   onSnapshot,
   query,
   setDoc,
@@ -19,7 +18,6 @@ import {
 import { getAuth } from 'firebase/auth'
 import type { Enigme, GuessListEntry, UserProfile } from '../types'
 import { firebaseApp } from './firebase'
-import { getOrCreateUserId, readUserId, setUserId } from './storeLocal'
 import { notifyDataChanged } from './storeEvents'
 
 let db: Firestore | null = null
@@ -39,7 +37,8 @@ let unsubGuesses: Unsubscribe | null = null
 
 export function startFirestoreSync(): void {
   // Démarrage standard : énigmes (mode home si configuré ailleurs) + guesses du joueur courant.
-  const uid = readUserId() ?? getOrCreateUserId()
+  const uid = getAuth(firebaseApp).currentUser?.uid
+  if (!uid) return
   startFirestoreSyncUserGuesses(uid)
 }
 
@@ -298,81 +297,15 @@ export async function saveEnigmesRemote(enigmes: Enigme[]): Promise<void> {
   notifyDataChanged()
 }
 
-async function allUserCodes(): Promise<Set<string>> {
-  const snap = await getDocs(collection(getDb(), 'users'))
-  const used = new Set<string>()
-  snap.forEach((d) => {
-    const c = d.data().codeconnexion
-    if (typeof c === 'string' && /^\d{8}$/.test(c)) used.add(c)
-  })
-  return used
-}
-
-function randomEightDigitCode(): string {
-  let s = ''
-  for (let i = 0; i < 8; i += 1) s += String(Math.floor(Math.random() * 10))
-  return s
-}
-
-async function pickUniqueConnectionCode(
-  excludeForReuse: string | null,
-): Promise<string> {
-  const used = await allUserCodes()
-  if (excludeForReuse) used.delete(excludeForReuse)
-  for (let n = 0; n < 200; n += 1) {
-    const c = randomEightDigitCode()
-    if (!used.has(c)) return c
-  }
-  return `${Date.now()}`.slice(-8).padStart(8, '0')
-}
-
 export async function registerUserNameRemote(name: string): Promise<UserProfile> {
   const t = name.trim()
-  const userid = getOrCreateUserId()
+  const userid = getAuth(firebaseApp).currentUser?.uid
+  if (!userid) throw new Error('Non connecté')
   const d = getDb()
   const ref = doc(d, 'users', userid)
-  const prevSnap = await getDoc(ref)
-  const previousCode =
-    prevSnap.exists() && typeof prevSnap.data().codeconnexion === 'string'
-      ? (prevSnap.data().codeconnexion as string)
-      : null
-  const code = await pickUniqueConnectionCode(previousCode)
-  const row: UserProfile = { userid, name: t, codeconnexion: code }
-  await setDoc(ref, { name: t, codeconnexion: code }, { merge: true })
+  const row: UserProfile = { userid, name: t }
+  await setDoc(ref, { name: t }, { merge: true })
   return row
-}
-
-export async function loginWithConnectionCodeRemote(
-  raw: string,
-): Promise<UserProfile | null> {
-  const normalized = raw.replace(/\s+/g, '')
-  if (!/^\d{8}$/.test(normalized)) return null
-  const d = getDb()
-  const q = query(
-    collection(d, 'users'),
-    where('codeconnexion', '==', normalized),
-    limit(1),
-  )
-  const snap = await getDocs(q)
-  if (snap.empty) return null
-  const ddoc = snap.docs[0]
-  const userid = ddoc.id
-  const data = ddoc.data()
-  setUserId(userid)
-  return {
-    userid,
-    name: String(data.name ?? ''),
-    codeconnexion: String(data.codeconnexion ?? normalized),
-  }
-}
-
-export async function getMyConnectionCodeRemote(): Promise<string | null> {
-  const uid = readUserId()
-  if (!uid) return null
-  const snap = await getDoc(doc(getDb(), 'users', uid))
-  if (!snap.exists()) return null
-  const c = snap.data().codeconnexion
-  return typeof c === 'string' && /^\d{8}$/.test(c) ? c : null
 }
 
 export async function ensureUserProfileForNameRemote(
@@ -380,37 +313,31 @@ export async function ensureUserProfileForNameRemote(
 ): Promise<void> {
   const t = name.trim()
   if (!t) return
-  const uid = readUserId() ?? getOrCreateUserId()
+  const uid = getAuth(firebaseApp).currentUser?.uid
+  if (!uid) return
   const ref = doc(getDb(), 'users', uid)
-  const snap = await getDoc(ref)
-  if (snap.exists()) return
-  const code = await pickUniqueConnectionCode(null)
-  await setDoc(ref, { name: t, codeconnexion: code }, { merge: true })
+  await setDoc(ref, { name: t }, { merge: true })
 }
 
-/** Met à jour uniquement le nom ; ne modifie pas `codeconnexion`. */
+/** Met à jour uniquement le nom affiché. */
 export async function updateUserDisplayNameRemote(
   name: string,
 ): Promise<UserProfile | null> {
   const t = name.trim()
   if (!t) return null
-  const uid = readUserId()
+  const uid = getAuth(firebaseApp).currentUser?.uid
   if (!uid) return null
   const ref = doc(getDb(), 'users', uid)
   const snap = await getDoc(ref)
   if (!snap.exists()) return null
-  const data = snap.data()
-  const codeRaw = data.codeconnexion
-  if (typeof codeRaw !== 'string' || !/^\d{8}$/.test(codeRaw)) return null
   await setDoc(ref, { name: t }, { merge: true })
   notifyDataChanged()
-  return { userid: uid, name: t, codeconnexion: codeRaw }
+  return { userid: uid, name: t }
 }
 
 /**
  * Autorisation admin côté client (contrôle supplémentaire).
- * Source "sécurisée" (recommandée) : Firebase Auth + doc `admins/{auth.uid}.enabled === true`.
- * Fallback legacy : `users/{userid}.isAdmin === true` (si tu utilises encore cette colonne).
+ * Source : Firebase Auth + doc `admins/{auth.uid}.enabled === true`.
  */
 export async function isCurrentUserAdminRemote(): Promise<boolean> {
   const authUid = getAuth(firebaseApp).currentUser?.uid
@@ -419,34 +346,31 @@ export async function isCurrentUserAdminRemote(): Promise<boolean> {
     if (adminSnap.exists() && adminSnap.data()?.enabled === true) return true
   }
 
-  const userid = readUserId()
-  if (!userid) return false
-  const userSnap = await getDoc(doc(getDb(), 'users', userid))
-  if (!userSnap.exists()) return false
-  return userSnap.data()?.isAdmin === true
+  return false
 }
 
 /** Mise à jour optimiste du cache + persistance Firestore (API synchrone côté store). */
 export function upsertGuessFirestore(params: {
-  userid: string
   weeknumber: number
   enigmeid: string
   guess: string
   userName?: string
 }): GuessListEntry {
+  const userid = getAuth(firebaseApp).currentUser?.uid
+  if (!userid) throw new Error('Non connecté')
   const d = getDb()
   const trimmed = params.guess.trim()
   const now = Date.now()
   const existing = guessesCache.find(
     (g) =>
-      g.userid === params.userid &&
+      g.userid === userid &&
       g.weeknumber === params.weeknumber &&
       g.enigmeid === params.enigmeid,
   )
   const guesslistid = existing?.guesslistid ?? crypto.randomUUID()
   const entry: GuessListEntry = {
     guesslistid,
-    userid: params.userid,
+    userid,
     weeknumber: params.weeknumber,
     enigmeid: params.enigmeid,
     guess: trimmed,
@@ -460,7 +384,7 @@ export function upsertGuessFirestore(params: {
   }
   const idx = guessesCache.findIndex(
     (g) =>
-      g.userid === params.userid &&
+      g.userid === userid &&
       g.weeknumber === params.weeknumber &&
       g.enigmeid === params.enigmeid,
   )

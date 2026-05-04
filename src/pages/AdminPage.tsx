@@ -223,7 +223,7 @@ export function AdminPage() {
             : 'Erreur inconnue'
         setFormError(
           useFirebaseBackend()
-            ? `Envoi vers Firebase Storage impossible (${msg}). Vérifiez la connexion admin et le document users/{uid Auth} avec isAdmin: true.`
+            ? `Envoi vers Firebase Storage impossible (${msg}). Vérifiez la connexion admin et le document admins/{uid Auth} avec enabled: true.`
             : 'Lecture du fichier impossible.',
         )
         return

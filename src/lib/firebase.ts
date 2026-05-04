@@ -1,6 +1,7 @@
 import { initializeApp, type FirebaseOptions } from 'firebase/app'
 import { getAnalytics, isSupported } from 'firebase/analytics'
 import { getStorage, type FirebaseStorage } from 'firebase/storage'
+import { getAuth, type Auth } from 'firebase/auth'
 
 const firebaseConfig: FirebaseOptions = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -19,10 +20,16 @@ if (measurementId) {
 export const firebaseApp = initializeApp(firebaseConfig)
 
 let storageInstance: FirebaseStorage | null = null
+let authInstance: Auth | null = null
 
 export function getFirebaseStorage(): FirebaseStorage {
   if (!storageInstance) storageInstance = getStorage(firebaseApp)
   return storageInstance
+}
+
+export function getFirebaseAuth(): Auth {
+  if (!authInstance) authInstance = getAuth(firebaseApp)
+  return authInstance
 }
 
 /** Analytics uniquement si supporté (navigateur). */

@@ -18,7 +18,7 @@ Règles de sécurité : voir `firestore.rules` (MVP ouvert ; à durcir avec Fire
 ## Firebase Storage (`storage.rules`)
 - Chemin prévu pour les images d’énigmes : `enigmes/{enigmeId}/{fileName}`.
 - **Lecture** : `get` public sur les objets sous `enigmes/…` ; pas de `list` anonyme.
-- **Écriture** : uniquement si l’utilisateur est connecté avec **Firebase Auth** et que **`users/{request.auth.uid}`** a **`isAdmin == true`** (document à créer / maintenir dans la console pour l’UID du compte admin Auth).
+- **Écriture** : uniquement si l’utilisateur est connecté avec **Firebase Auth** et que **`admins/{request.auth.uid}`** a **`enabled == true`** (document à créer / maintenir dans la console pour l’UID du compte admin Auth).
 - La page admin appelle `signInWithEmailAndPassword` avec `VITE_FIREBASE_ADMIN_EMAIL` / `VITE_FIREBASE_ADMIN_PASSWORD` après le mot de passe applicatif.
 
 ## user

@@ -2,13 +2,13 @@ rules_version = '2';
 
 // Stockage : téléchargement (`get`) pour tout le monde (images des énigmes).
 // Pas de listage anonyme du dossier.
-// Écriture : uniquement si l’utilisateur est connecté avec Firebase Auth ET que le
-// document Firestore `users/{request.auth.uid}` existe avec `isAdmin == true`.
+// Écriture : uniquement si l’utilisateur est connecté avec Firebase Auth ET que
+// `admins/{request.auth.uid}.enabled == true`.
 //
 // Mise en place une fois :
 // 1. Authentication > compte admin (e-mail / mot de passe).
 // 2. Copier l’UID Auth du compte.
-// 3. Firestore > collection `users` > document id = cet UID > champ `isAdmin` (bool) = true.
+// 3. Firestore > collection `admins` > document id = cet UID > champ `enabled` (bool) = true.
 // 4. Variables Vite `VITE_FIREBASE_ADMIN_EMAIL` / `VITE_FIREBASE_ADMIN_PASSWORD` (connexion au login admin).
 
 service firebase.storage {
@@ -17,8 +17,17 @@ service firebase.storage {
       allow get: if true;
       allow list: if false;
       allow write: if request.auth != null
-        && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
-        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+        && firestore.exists(/databases/(default)/documents/admins/$(request.auth.uid))
+        && firestore.get(/databases/(default)/documents/admins/$(request.auth.uid)).data.enabled == true;
+    }
+
+    // Images publiques page /morgan (ex. morgan/mdr.png) : lecture pour tous, écriture admin.
+    match /morgan/{path=**} {
+      allow get: if true;
+      allow list: if false;
+      allow write: if request.auth != null
+        && firestore.exists(/databases/(default)/documents/admins/$(request.auth.uid))
+        && firestore.get(/databases/(default)/documents/admins/$(request.auth.uid)).data.enabled == true;
     }
 
     match /{path=**} {

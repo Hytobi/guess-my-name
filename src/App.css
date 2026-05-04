@@ -95,9 +95,118 @@
   max-width: 28rem;
 }
 
+.auth-header {
+  text-align: center;
+}
+
 .lede {
   margin-top: 0.75rem;
   line-height: 145%;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 26rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.1rem 1.1rem 1rem;
+  background: color-mix(in srgb, var(--bg) 90%, var(--code-bg));
+  box-shadow: var(--shadow);
+  box-sizing: border-box;
+}
+
+.auth-card-head {
+  margin-bottom: 0.85rem;
+}
+
+.auth-title {
+  margin: 0;
+  font-size: 1.15rem;
+  color: var(--text-h);
+}
+
+.auth-subtitle {
+  margin: 0.35rem 0 0;
+  color: var(--text);
+  line-height: 145%;
+}
+
+.auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin: 0.85rem 0 0.9rem;
+}
+
+.auth-tab {
+  font: inherit;
+  padding: 0.55rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--code-bg);
+  color: var(--text-h);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.auth-tab:hover {
+  border-color: var(--accent-border);
+}
+
+.auth-tab-active {
+  background: var(--accent-bg);
+  color: var(--accent);
+  border-color: var(--accent-border);
+}
+
+.auth-form {
+  max-width: none;
+}
+
+.auth-helper {
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+  color: var(--text);
+  line-height: 140%;
+}
+
+.auth-error {
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, #c02626 45%, var(--border));
+  background: color-mix(in srgb, #c02626 10%, var(--bg));
+}
+
+.auth-link {
+  margin-top: 0.4rem;
+  text-align: left;
+  text-decoration: none;
+}
+
+.auth-link:hover {
+  text-decoration: underline;
+}
+
+.auth-ok {
+  margin-top: 0.75rem;
+}
+
+.decoy-mdr-img {
+  display: block;
+  max-width: min(100%, 28rem);
+  height: auto;
+  margin: 1rem auto 0;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+.morgan-page {
+  padding: 1.5rem 1rem;
+}
+
+.morgan-page .decoy-mdr-img {
+  max-width: min(100%, 36rem);
+  margin: 0 auto;
 }
 
 .name-form {
@@ -123,6 +232,11 @@
   background: var(--bg);
   color: var(--text-h);
   box-sizing: border-box;
+}
+
+.name-form input:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
 }
 
 .name-form input:focus-visible {

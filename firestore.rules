@@ -1,7 +1,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isAdmin() {
+    function hasAdminAccess() {
       return request.auth != null
         && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
         && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.enabled == true;
@@ -10,23 +10,36 @@ service cloud.firestore {
     // Énigmes : lecture publique, écriture réservée aux admins Firebase.
     match /enigmes/{id} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if hasAdminAccess();
     }
 
-    // TODO sécurité: `guesses` et `users` sont encore ouverts (MVP).
-    // Pour une sécurité complète, il faut lier les joueurs à Firebase Auth
-    // et appliquer des règles basées sur request.auth.uid.
+    // Propositions : chaque joueur ne lit/écrit que les siennes ; les admins lisent tout.
     match /guesses/{id} {
-      allow read, write: if true;
+      // Joueur : ne lit/écrit que ses propres guesses (userid = auth.uid).
+      // Admin : peut tout lire (page admin).
+      allow read: if hasAdminAccess()
+        || (request.auth != null && resource.data.userid == request.auth.uid);
+
+      allow create: if request.auth != null
+        && request.resource.data.userid == request.auth.uid;
+
+      allow update, delete: if request.auth != null
+        && resource.data.userid == request.auth.uid
+        && request.resource.data.userid == resource.data.userid;
     }
     match /users/{id} {
-      allow read, write: if true;
+      // Profil utilisateur : chacun ne lit/écrit que son document.
+      allow read, write: if request.auth != null && request.auth.uid == id;
     }
 
     // Référentiel admin Storage : créé / modifié uniquement depuis la console Firebase
     // (le client ne doit pas pouvoir s’auto-promouvoir).
     match /admins/{uid} {
-      allow read, write: if false;
+      // Autorise uniquement la lecture de SON propre doc (nécessaire pour l'UI admin),
+      // sans permettre de lister ni d'écrire.
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow list: if false;
+      allow write: if false;
     }
   }
 }

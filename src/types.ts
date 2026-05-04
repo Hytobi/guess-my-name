@@ -1,9 +1,9 @@
 /** Compte joueur (local puis Firebase). */
 export type UserProfile = {
+  /** Identifiant utilisateur (Firebase Auth uid quand Firebase est actif). */
   userid: string
+  /** Nom affiché dans l'app. */
   name: string
-  /** Code à 8 chiffres pour retrouver le compte sur un autre appareil */
-  codeconnexion: string
 }
 
 /** Énigme publiée (image via Storage Firebase plus tard). */
