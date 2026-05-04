@@ -18,6 +18,7 @@ import { setViewAsPlayer } from '../state/adminSlice'
 import type { RootState } from '../state/store'
 import { getCurrentWeeknumber } from '../lib/week'
 import { useFirebaseBackend } from '../lib/dataMode'
+import { EnigmeImage } from '../components/EnigmeImage'
 
 const DATA_EVENT = 'guess-my-name:data'
 
@@ -233,8 +234,8 @@ export function HomePage() {
                       <time dateTime={e.date}>{e.date}</time>
                     </div>
                     {e.imageDataUrl ? (
-                      <img
-                        src={e.imageDataUrl}
+                      <EnigmeImage
+                        imageRef={e.imageDataUrl}
                         alt=""
                         className="enigme-img"
                       />

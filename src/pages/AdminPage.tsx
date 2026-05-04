@@ -14,6 +14,7 @@ import {
   getWeeknumberFromIsoDate,
 } from '../lib/week'
 import { useFirebaseBackend } from '../lib/dataMode'
+import { uploadEnigmeImageToStorage } from '../lib/enigmeImageStorage'
 import {
   signInFirebaseAdminAfterGate,
   signOutFirebaseAdmin,
@@ -194,6 +195,8 @@ export function AdminPage() {
       return
     }
 
+    const enigmeid = editingEnigmeId ?? crypto.randomUUID()
+
     let nomFichier = editingOriginal?.nomFichier ?? ''
     let imageDataUrl: string | null =
       (editingOriginal?.imageDataUrl as string | null | undefined) ?? null
@@ -201,22 +204,34 @@ export function AdminPage() {
     if (file) {
       nomFichier = file.name
       try {
-        const dataUrl = await readFileAsDataUrl(file)
-        if (dataUrl.length > MAX_DATA_URL_CHARS) {
-          setFormError(
-            'Image trop lourde pour le stockage local. Réduisez la taille ou laissez sans fichier (Firebase Storage plus tard).',
-          )
-          return
+        if (useFirebaseBackend()) {
+          imageDataUrl = await uploadEnigmeImageToStorage(enigmeid, file)
+        } else {
+          const dataUrl = await readFileAsDataUrl(file)
+          if (dataUrl.length > MAX_DATA_URL_CHARS) {
+            setFormError(
+              'Image trop lourde pour le stockage local. Réduisez la taille ou laissez sans fichier.',
+            )
+            return
+          }
+          imageDataUrl = dataUrl
         }
-        imageDataUrl = dataUrl
-      } catch {
-        setFormError('Lecture du fichier impossible.')
+      } catch (err) {
+        const msg =
+          err instanceof Error && err.message
+            ? err.message
+            : 'Erreur inconnue'
+        setFormError(
+          useFirebaseBackend()
+            ? `Envoi vers Firebase Storage impossible (${msg}). Vérifiez la connexion admin et le document users/{uid Auth} avec isAdmin: true.`
+            : 'Lecture du fichier impossible.',
+        )
         return
       }
     }
 
     const base: Enigme = {
-      enigmeid: editingEnigmeId ?? crypto.randomUUID(),
+      enigmeid,
       libelle: L,
       date,
       nomFichier,
@@ -420,7 +435,8 @@ export function AdminPage() {
               />
             </label>
             <label>
-              Image (optionnel, stockage local temporaire)
+              Image (optionnel) — avec Firebase : fichier envoyé vers Storage, chemin
+              `gs://…` enregistré dans Firestore ; en local uniquement : aperçu data URL.
               <input
                 type="file"
                 accept="image/*"

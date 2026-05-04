@@ -17,6 +17,7 @@ export type Enigme = {
   nomFichier: string
   message: string
   /** Aperçu local (data URL) en attendant Firebase Storage */
+  /** `data:…` (local), ou `gs://<bucket>/enigmes/…` (Firestore + Firebase Storage). */
   imageDataUrl?: string | null
 }
 

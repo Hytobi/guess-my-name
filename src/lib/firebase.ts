@@ -1,5 +1,6 @@
 import { initializeApp, type FirebaseOptions } from 'firebase/app'
 import { getAnalytics, isSupported } from 'firebase/analytics'
+import { getStorage, type FirebaseStorage } from 'firebase/storage'
 
 const firebaseConfig: FirebaseOptions = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -16,6 +17,13 @@ if (measurementId) {
 }
 
 export const firebaseApp = initializeApp(firebaseConfig)
+
+let storageInstance: FirebaseStorage | null = null
+
+export function getFirebaseStorage(): FirebaseStorage {
+  if (!storageInstance) storageInstance = getStorage(firebaseApp)
+  return storageInstance
+}
 
 /** Analytics uniquement si supporté (navigateur). */
 export async function initFirebaseAnalytics() {
