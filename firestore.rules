@@ -7,6 +7,16 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.enabled == true;
     }
 
+    function isResultatPageEnabled() {
+      return exists(/databases/$(database)/documents/page/resultat)
+        && get(/databases/$(database)/documents/page/resultat).data.enabled == true;
+    }
+
+    /** Roue + explications : admin ou page /resultat activée pour les joueurs. */
+    function canReadResultatData() {
+      return hasAdminAccess() || isResultatPageEnabled();
+    }
+
     // Énigmes : lecture publique, écriture réservée aux admins Firebase.
     match /enigmes/{id} {
       allow read: if true;
@@ -40,6 +50,23 @@ service cloud.firestore {
       allow get: if request.auth != null && request.auth.uid == uid;
       allow list: if false;
       allow write: if false;
+    }
+
+    // Roue : lecture admin ou si page /resultat activée (joueurs sur /resultat uniquement).
+    match /parametrage_roue/{id} {
+      allow read: if canReadResultatData();
+      allow write: if hasAdminAccess();
+    }
+
+    match /explications/{enigmeid} {
+      allow read: if canReadResultatData();
+      allow write: if hasAdminAccess();
+    }
+
+    // État on/off de /resultat : lecture publique (contrôle d’accès côté app).
+    match /page/{name} {
+      allow read: if true;
+      allow write: if hasAdminAccess();
     }
   }
 }

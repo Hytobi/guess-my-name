@@ -192,6 +192,25 @@ export function findGuess(
   )
 }
 
+export function findUserGuessForEnigme(
+  userid: string,
+  enigmeid: string,
+): GuessListEntry | undefined {
+  const uid = userid.trim()
+  const eid = enigmeid.trim()
+  if (!uid || !eid) return undefined
+  const matches = loadGuessList().filter(
+    (g) => g.userid === uid && g.enigmeid === eid,
+  )
+  if (matches.length === 0) return undefined
+  return matches.reduce((best, g) => {
+    const bestTs = best.updatedAtMs ?? 0
+    const gTs = g.updatedAtMs ?? 0
+    if (gTs !== bestTs) return gTs > bestTs ? g : best
+    return g.weeknumber >= best.weeknumber ? g : best
+  })
+}
+
 export function upsertGuess(params: {
   userid: string
   weeknumber: number
@@ -200,18 +219,21 @@ export function upsertGuess(params: {
   userName?: string
 }): GuessListEntry {
   const all = loadGuessList()
-  const idx = all.findIndex(
-    (g) =>
-      g.userid === params.userid &&
-      g.weeknumber === params.weeknumber &&
-      g.enigmeid === params.enigmeid,
-  )
+  const existing = findUserGuessForEnigme(params.userid, params.enigmeid)
+  const idx = existing
+    ? all.findIndex((g) => g.guesslistid === existing.guesslistid)
+    : -1
   const trimmed = params.guess.trim()
   const now = Date.now()
 
   if (idx >= 0) {
     const prev = all[idx]
-    const updated: GuessListEntry = { ...prev, guess: trimmed, updatedAtMs: now }
+    const updated: GuessListEntry = {
+      ...prev,
+      guess: trimmed,
+      weeknumber: params.weeknumber,
+      updatedAtMs: now,
+    }
     if (params.userName !== undefined) {
       const t = params.userName.trim()
       updated.userName = t || undefined

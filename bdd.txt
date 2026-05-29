@@ -12,8 +12,11 @@ Il sera mis à jour au fil du projet.
 - `users` — document id = `userid`, champs : `name`, `codeconnexion`
 - `enigmes` — document id = `enigmeid`, champs alignés sur la table enigme (+ `imageDataUrl` optionnel)
 - `guesses` — document id = `guesslistid`, champs alignés sur guessList
+- `parametrage_roue` — document id = `default` (config unique de la roue de la fortune)
+- `explications` — document id = `enigmeid`, champs : `enigmeid`, `explication`
+- `page` — document id = nom de la route (ex. `resultat`), champs : `name`, `enabled`
 
-Règles de sécurité : voir `firestore.rules` (MVP ouvert ; à durcir avec Firebase Auth).
+Règles de sécurité : voir `firestore.rules`. Lecture `parametrage_roue` et `explications` : admin ou `page/resultat.enabled == true`. Lecture `page` : publique (pour savoir si /resultat est ouvert).
 
 ## Firebase Storage (`storage.rules`)
 - Chemin prévu pour les images d’énigmes : `enigmes/{enigmeId}/{fileName}`.
@@ -42,3 +45,20 @@ Règle d’affichage sur l’accueil joueur : lister les énigmes dont le jour `
 - enigmeid : énigme concernée
 - userid : auteur de la proposition
 - userName (optionnel, dénormalisé) : copie du nom affiché au moment de l’enregistrement ; en production on pourra joindre `user.name` à la place
+
+## parametrage_roue
+- id : identifiant du document (`default`)
+- segments[] : `{ id, label, backgroundColor }` — parts de la roue (fonds distincts)
+- cheatModeEnabled : booléen — active le mode triche (deux phases)
+- phase1 : `{ durationMs, stopSegmentIndex }` — durée de la 1ʳᵉ rotation et libellé d’arrêt (index dans `segments`)
+- phase2 : `{ pauseBeforeSpinMs, spinDurationMs, stopSegmentIndex }` — pause, durée de la 2ᵉ rotation, libellé d’arrêt
+- updatedAtMs (optionnel) : horodatage de dernière modification
+
+## page
+- name : identifiant logique (ex. `resultat`, même valeur que l’id du document)
+- enabled : si `true`, accès à `/resultat` et bouton « Découvrir le prénom » sur l’accueil
+
+## explications
+- enigmeid : identifiant de l’énigme (clé du document)
+- explication : texte révélé sur `/resultat` après la roue
+- updatedAtMs (optionnel)

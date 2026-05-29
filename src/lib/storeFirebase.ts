@@ -129,6 +129,35 @@ export function startFirestoreSyncAllEnigmes(): void {
   )
 }
 
+/** Force la resynchro des guesses du joueur (réabonnement + cache vidé). */
+export function forceFirestoreSyncUserGuesses(userid: string): void {
+  if (guessesMode === 'all') return
+  const uid = userid.trim()
+  if (!uid) return
+
+  if (unsubGuesses) {
+    unsubGuesses()
+    unsubGuesses = null
+  }
+
+  guessesMode = 'none'
+  guessesUserid = null
+  guessesCache = []
+  startFirestoreSyncUserGuesses(uid)
+}
+
+/** Joueur : recharge immédiatement ses propositions (une fois). */
+export async function pullUserGuessesOnceRemote(userid: string): Promise<void> {
+  const uid = userid.trim()
+  if (!uid) return
+  const d = getDb()
+  const snap = await getDocs(
+    query(collection(d, 'guesses'), where('userid', '==', uid)),
+  )
+  guessesCache = snap.docs.map(guessFromDoc)
+  notifyDataChanged()
+}
+
 /** Joueur : ne souscrit qu’aux guesses du `userid` courant. */
 export function startFirestoreSyncUserGuesses(userid: string): void {
   // Si l’admin a demandé la synchro globale, ne pas repasser en mode "user"
@@ -280,6 +309,26 @@ export function findGuessInCache(
   )
 }
 
+/** Proposition du joueur pour une énigme (toutes semaines), la plus récente en priorité. */
+export function findUserGuessForEnigmeInCache(
+  userid: string,
+  enigmeid: string,
+): GuessListEntry | undefined {
+  const uid = userid.trim()
+  const eid = enigmeid.trim()
+  if (!uid || !eid) return undefined
+  const matches = guessesCache.filter(
+    (g) => g.userid === uid && g.enigmeid === eid,
+  )
+  if (matches.length === 0) return undefined
+  return matches.reduce((best, g) => {
+    const bestTs = best.updatedAtMs ?? 0
+    const gTs = g.updatedAtMs ?? 0
+    if (gTs !== bestTs) return gTs > bestTs ? g : best
+    return g.weeknumber >= best.weeknumber ? g : best
+  })
+}
+
 export async function saveEnigmesRemote(enigmes: Enigme[]): Promise<void> {
   const d = getDb()
   const newIds = new Set(enigmes.map((e) => e.enigmeid))
@@ -361,12 +410,7 @@ export function upsertGuessFirestore(params: {
   const d = getDb()
   const trimmed = params.guess.trim()
   const now = Date.now()
-  const existing = guessesCache.find(
-    (g) =>
-      g.userid === userid &&
-      g.weeknumber === params.weeknumber &&
-      g.enigmeid === params.enigmeid,
-  )
+  const existing = findUserGuessForEnigmeInCache(userid, params.enigmeid)
   const guesslistid = existing?.guesslistid ?? crypto.randomUUID()
   const entry: GuessListEntry = {
     guesslistid,
@@ -383,10 +427,7 @@ export function upsertGuessFirestore(params: {
     entry.userName = existing.userName
   }
   const idx = guessesCache.findIndex(
-    (g) =>
-      g.userid === userid &&
-      g.weeknumber === params.weeknumber &&
-      g.enigmeid === params.enigmeid,
+    (g) => g.guesslistid === guesslistid,
   )
   if (idx >= 0) {
     guessesCache[idx] = entry

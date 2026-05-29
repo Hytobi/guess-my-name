@@ -19,6 +19,8 @@ import {
   signInFirebaseAdminAfterGate,
   signOutFirebaseAdmin,
 } from '../lib/firebaseAuthAdmin'
+import { AdminWheelPanel } from './AdminWheelPanel'
+import { AdminResultatPanel } from './AdminResultatPanel'
 import {
   checkAdminPassword,
   countUsersWhoPlayedEnigme,
@@ -36,7 +38,7 @@ import type { RootState } from '../state/store'
 
 const MAX_DATA_URL_CHARS = 400_000
 
-type AdminSection = 'enigmes' | 'propositions'
+type AdminSection = 'enigmes' | 'propositions' | 'roue' | 'resultat'
 
 export function AdminPage() {
   const { name: playerName } = useUser()
@@ -396,7 +398,31 @@ export function AdminPage() {
             className={`admin-tab${section === 'propositions' ? ' admin-tab-active' : ''}`}
             onClick={() => setSection('propositions')}
           >
-            Propositions des joueurs
+            Propositions
+          </button>
+          <button
+            type="button"
+            role="tab"
+            id="admin-tab-roue"
+            aria-selected={section === 'roue'}
+            aria-controls="admin-panel-roue"
+            tabIndex={section === 'roue' ? 0 : -1}
+            className={`admin-tab${section === 'roue' ? ' admin-tab-active' : ''}`}
+            onClick={() => setSection('roue')}
+          >
+            Roue
+          </button>
+          <button
+            type="button"
+            role="tab"
+            id="admin-tab-resultat"
+            aria-selected={section === 'resultat'}
+            aria-controls="admin-panel-resultat"
+            tabIndex={section === 'resultat' ? 0 : -1}
+            className={`admin-tab${section === 'resultat' ? ' admin-tab-active' : ''}`}
+            onClick={() => setSection('resultat')}
+          >
+            Résultat
           </button>
         </div>
 
@@ -523,7 +549,7 @@ export function AdminPage() {
           )}
         </section>
           </div>
-        ) : (
+        ) : section === 'propositions' ? (
           <div
             id="admin-panel-propositions"
             role="tabpanel"
@@ -543,6 +569,19 @@ export function AdminPage() {
               onClick={handleReloadGuesses}
             >
               Recharger les propositions
+            </button>
+            <button
+              type="button"
+              className="secondary narrow"
+              disabled={filteredGuesses.length === 0}
+              onClick={() => {
+                void import('../lib/exportPropositionsExcel').then(
+                  ({ exportPropositionsExcel }) =>
+                    exportPropositionsExcel(filteredGuesses, enigmeById),
+                )
+              }}
+            >
+              Exporter en Excel
             </button>
             {reloadHint ? (
               <p className="ok-hint" role="status">
@@ -644,6 +683,22 @@ export function AdminPage() {
             </div>
           )}
         </section>
+          </div>
+        ) : section === 'roue' ? (
+          <div
+            id="admin-panel-roue"
+            role="tabpanel"
+            aria-labelledby="admin-tab-roue"
+          >
+            <AdminWheelPanel />
+          </div>
+        ) : (
+          <div
+            id="admin-panel-resultat"
+            role="tabpanel"
+            aria-labelledby="admin-tab-resultat"
+          >
+            <AdminResultatPanel />
           </div>
         )}
       </main>

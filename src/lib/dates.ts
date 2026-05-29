@@ -1,3 +1,5 @@
+import type { Enigme } from '../types'
+
 /** Parse une date `YYYY-MM-DD` en jour local minuit. */
 export function parseLocalDay(isoDay: string): Date | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDay.trim())
@@ -33,4 +35,13 @@ export function todayIsoDay(): string {
   const m = String(t.getMonth() + 1).padStart(2, '0')
   const d = String(t.getDate()).padStart(2, '0')
   return `${y}-${m}-${d}`
+}
+
+/** Tri par `date` croissante (plus ancienne en premier). */
+export function sortEnigmesOldestFirst(enigmes: Enigme[]): Enigme[] {
+  return [...enigmes].sort((a, b) => {
+    if (a.date < b.date) return -1
+    if (a.date > b.date) return 1
+    return a.enigmeid.localeCompare(b.enigmeid)
+  })
 }

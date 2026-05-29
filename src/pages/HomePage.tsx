@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useUser } from '../context/UserContext'
 import { LoggedTopBar } from '../components/LoggedTopBar'
 import { useDispatch, useSelector } from 'react-redux'
 import {
   countGuessesForEnigme,
   ensureUserProfileForName,
-  findGuess,
+  findUserGuessForEnigme,
   loadEnigmes,
   enableAdminEnigmesSync,
   forceSyncHomeEnigmesForToday,
+  reloadPlayerDataNow,
   syncHomeEnigmesForToday,
   upsertGuess,
 } from '../lib/store'
@@ -16,6 +18,12 @@ import { setViewAsPlayer } from '../state/adminSlice'
 import type { RootState } from '../state/store'
 import { getCurrentWeeknumber } from '../lib/week'
 import { useFirebaseBackend } from '../lib/dataMode'
+import {
+  canAccessResultatPage,
+  isPageEnabled,
+  PAGE_RESULTAT,
+  startPageConfigSync,
+} from '../lib/pageStore'
 import { EnigmeImage } from '../components/EnigmeImage'
 
 const DATA_EVENT = 'guess-my-name:data'
@@ -42,18 +50,31 @@ export function HomePage() {
     }
   }, [])
 
-  const weeknumber = useMemo(
-    () => getCurrentWeeknumber(),
-    [calendarTick],
-  )
-
   const [enigmes, setEnigmes] = useState(loadEnigmes)
   const [drafts, setDrafts] = useState<Record<string, string>>({})
   const [savedHint, setSavedHint] = useState<string | null>(null)
+  const [reloadHint, setReloadHint] = useState<string | null>(null)
+  const [reloading, setReloading] = useState(false)
+  const [pageResultatEnabled, setPageResultatEnabled] = useState(() =>
+    isPageEnabled(PAGE_RESULTAT),
+  )
+
+  const showDecouvrirPrenom = canAccessResultatPage(
+    pageResultatEnabled,
+    isAdminVerified,
+    viewAsPlayer,
+  )
 
   const refresh = useCallback(() => {
+    setPageResultatEnabled(isPageEnabled(PAGE_RESULTAT))
     setEnigmes(loadEnigmes())
-  }, [])
+    const next: Record<string, string> = {}
+    for (const e of loadEnigmes()) {
+      const g = findUserGuessForEnigme(userid, e.enigmeid)
+      next[e.enigmeid] = g?.guess ?? ''
+    }
+    setDrafts(next)
+  }, [userid])
 
   useEffect(() => {
     const onData = () => refresh()
@@ -65,6 +86,11 @@ export function HomePage() {
     if (!name) return
     void ensureUserProfileForName(name)
   }, [name])
+
+  useEffect(() => {
+    if (!usingFirebase) return
+    startPageConfigSync()
+  }, [usingFirebase])
 
   useEffect(() => {
     if (!usingFirebase) return
@@ -119,20 +145,38 @@ export function HomePage() {
   const isGuessLocked = useCallback(
     (enigmeid: string): boolean => {
       if (!latestVisibleEnigmeId || enigmeid === latestVisibleEnigmeId) return false
-      const g = findGuess(userid, weeknumber, enigmeid)
+      const g = findUserGuessForEnigme(userid, enigmeid)
       return (g?.guess ?? '').trim() !== ''
     },
-    [latestVisibleEnigmeId, userid, weeknumber],
+    [latestVisibleEnigmeId, userid],
   )
 
   useEffect(() => {
     const next: Record<string, string> = {}
     for (const e of visibles) {
-      const g = findGuess(userid, weeknumber, e.enigmeid)
+      const g = findUserGuessForEnigme(userid, e.enigmeid)
       next[e.enigmeid] = g?.guess ?? ''
     }
     setDrafts(next)
-  }, [visibles, userid, weeknumber])
+  }, [visibles, userid])
+
+  const handleReloadData = async () => {
+    if (!userid || reloading) return
+    setReloading(true)
+    setReloadHint(null)
+    setSavedHint(null)
+    try {
+      if (usingFirebase) {
+        await reloadPlayerDataNow(userid)
+      }
+      refresh()
+      setReloadHint('Données actualisées.')
+    } catch {
+      setReloadHint('Actualisation impossible. Réessayez.')
+    } finally {
+      setReloading(false)
+    }
+  }
 
   const setDraft = (enigmeid: string, text: string) => {
     if (isGuessLocked(enigmeid)) return
@@ -202,11 +246,42 @@ export function HomePage() {
           </p>
         ) : null}
 
+        {showDecouvrirPrenom ? (
+          <section className="panel" aria-label="Découvrir le prénom">
+            <Link to="/resultat" className="primary home-resultat-cta">
+              Découvrir le prénom
+            </Link>
+            {isAdminVerified && !viewAsPlayer && !pageResultatEnabled ? (
+              <p className="ok-hint" role="note">
+                Aperçu admin : la page n’est pas encore activée pour les joueurs.
+              </p>
+            ) : null}
+          </section>
+        ) : null}
+
         <section className="panel">
           <h2>Énigmes disponibles</h2>
           <p className="panel-intro">
             <strong>Une nouvelle énigme est disponible chaque Vendredi !</strong>
           </p>
+
+          {usingFirebase ? (
+            <div className="admin-actions-row">
+              <button
+                type="button"
+                className="secondary narrow"
+                disabled={reloading || !userid}
+                onClick={() => void handleReloadData()}
+              >
+                {reloading ? 'Actualisation…' : 'Actualiser mes données'}
+              </button>
+              {reloadHint ? (
+                <p className="ok-hint" role="status">
+                  {reloadHint}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
 
           {visibles.length === 0 ? (
             <p className="empty-state">

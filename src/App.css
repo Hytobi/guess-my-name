@@ -796,3 +796,253 @@
   font-style: italic;
   opacity: 0.85;
 }
+
+/* —— Roue de la fortune —— */
+.fortune-wheel-view,
+.fortune-wheel-host {
+  width: 100%;
+  max-width: 20rem;
+  margin: 0 auto;
+}
+
+.fortune-wheel-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+}
+
+.fortune-wheel-disc,
+.fortune-wheel-labels {
+  position: absolute;
+  inset: 4%;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.fortune-wheel-disc {
+  border: 3px solid var(--border);
+  border-radius: 50%;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  background: transparent;
+}
+
+.fortune-wheel-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.fortune-wheel-labels {
+  pointer-events: none;
+}
+
+.fortune-wheel-label {
+  position: absolute;
+  box-sizing: border-box;
+  padding: 0 0.15em;
+  text-align: center;
+  font-size: clamp(0.62rem, 2.8vw, 0.78rem);
+  font-weight: 600;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.65);
+  line-height: 1.2;
+  word-break: break-word;
+  transform-origin: center center;
+  white-space: normal;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fortune-wheel-pointer {
+  position: absolute;
+  top: -2%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 12px solid transparent;
+  border-right: 12px solid transparent;
+  border-top: 22px solid var(--accent);
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.25));
+  z-index: 2;
+}
+
+.roue-test-layout {
+  display: flex;
+  justify-content: center;
+  padding: 1rem 0 1.25rem;
+}
+
+.roue-segment-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.roue-segment-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--code-bg);
+}
+
+.roue-segment-label-field {
+  flex: 1 1 10rem;
+  min-width: 8rem;
+}
+
+.roue-segment-label-field input {
+  width: 100%;
+}
+
+.roue-segment-color-field input {
+  width: 2.75rem;
+  height: 2.25rem;
+  padding: 0.15rem;
+  cursor: pointer;
+}
+
+.roue-segment-swatch {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.roue-cheat-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  cursor: pointer;
+}
+
+.roue-cheat-phases {
+  display: grid;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .roue-cheat-phases {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.roue-phase-fieldset {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.roue-phase-fieldset legend {
+  padding: 0 0.35rem;
+  font-weight: 600;
+}
+
+.roue-phase-hint {
+  margin: 0 0 0.5rem;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  opacity: 0.92;
+}
+
+.roue-phase-fieldset label {
+  display: block;
+  margin-top: 0.65rem;
+}
+
+.roue-phase-fieldset label:first-of-type {
+  margin-top: 0.35rem;
+}
+
+.roue-phase-fieldset input,
+.roue-phase-fieldset select {
+  width: 100%;
+  margin-top: 0.25rem;
+}
+
+.home-resultat-cta {
+  display: inline-block;
+  text-align: center;
+  text-decoration: none;
+  padding: 0.75rem 1.25rem;
+  border-radius: 10px;
+  font-weight: 600;
+  box-sizing: border-box;
+}
+
+.resultat-reveal {
+  margin-top: 1.25rem;
+  border-color: var(--accent);
+}
+
+.resultat-explication-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.resultat-explication-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+}
+
+.resultat-explication-title .meta {
+  font-weight: 400;
+  font-size: 0.88rem;
+  opacity: 0.85;
+}
+
+.resultat-explication {
+  white-space: pre-wrap;
+  line-height: 1.55;
+  font-size: 1.05rem;
+}
+
+.explication-admin-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.explication-admin-row {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  background: var(--code-bg);
+}
+
+.explication-admin-row label {
+  display: block;
+  margin-top: 0.5rem;
+}
+
+.explication-admin-row textarea {
+  width: 100%;
+  margin-top: 0.25rem;
+}
+
+.explication-admin-head {
+  margin-bottom: 0.25rem;
+}
+
+.explication-admin-row .secondary {
+  margin-top: 0.65rem;
+}

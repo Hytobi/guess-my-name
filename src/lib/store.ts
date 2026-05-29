@@ -5,13 +5,16 @@ import {
   countGuessesForEnigmeRemote,
   ensureUserProfileForNameRemote,
   findGuessInCache,
+  findUserGuessForEnigmeInCache,
+  forceFirestoreSyncHomeEnigmes,
+  forceFirestoreSyncUserGuesses,
   getEnigmesSnapshot,
   getGuessesSnapshot,
   isCurrentUserAdminRemote,
   pullAllGuessesOnceRemote,
+  pullUserGuessesOnceRemote,
   registerUserNameRemote,
   saveEnigmesRemote,
-  forceFirestoreSyncHomeEnigmes,
   startFirestoreSync,
   startFirestoreSyncAllEnigmes,
   startFirestoreSyncAllGuesses,
@@ -74,6 +77,17 @@ export function findGuess(
   return useFirebaseBackend()
     ? findGuessInCache(userid, weeknumber, enigmeid)
     : L.findGuess(userid, weeknumber, enigmeid)
+}
+
+/** Proposition du joueur pour une énigme (indépendamment de la semaine courante). */
+export function findUserGuessForEnigme(
+  userid: string,
+  enigmeid: string,
+): GuessListEntry | undefined {
+  ensureRemote()
+  return useFirebaseBackend()
+    ? findUserGuessForEnigmeInCache(userid, enigmeid)
+    : L.findUserGuessForEnigme(userid, enigmeid)
 }
 
 export function upsertGuess(params: {
@@ -172,6 +186,17 @@ export async function reloadAllGuessesNow(): Promise<void> {
   ensureRemote()
   startFirestoreSyncAllGuesses()
   await pullAllGuessesOnceRemote()
+}
+
+/** Joueur : resynchronise énigmes + propositions comme à la connexion. */
+export async function reloadPlayerDataNow(userid: string): Promise<void> {
+  if (!useFirebaseBackend()) return
+  const uid = userid.trim()
+  if (!uid) return
+  ensureRemote()
+  forceFirestoreSyncUserGuesses(uid)
+  await pullUserGuessesOnceRemote(uid)
+  forceFirestoreSyncHomeEnigmes(todayIsoDay())
 }
 
 /** Nombre de propositions pour une énigme (sans charger tous les guesses côté joueur). */

@@ -8,6 +8,9 @@ import { AdminDecoyPage } from './pages/AdminDecoyPage'
 import { MorganPage } from './pages/MorganPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { RootPage } from './pages/RootPage'
+import { ResultatRoute } from './components/ResultatRoute'
+import { ResultatPage } from './pages/ResultatPage'
+import { startPageConfigSync } from './lib/pageStore'
 import { isCurrentUserAdmin } from './lib/store'
 import { useFirebaseBackend } from './lib/dataMode'
 import { setAdminVerified } from './state/adminSlice'
@@ -50,11 +53,23 @@ function AppInner() {
     }
   }, [dispatch, user?.uid])
 
+  useEffect(() => {
+    if (user) startPageConfigSync()
+  }, [user?.uid])
+
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<RootPage />} />
         <Route path="/profil" element={<ProfilePage />} />
+        <Route
+          path="/resultat"
+          element={
+            <ResultatRoute>
+              <ResultatPage />
+            </ResultatRoute>
+          }
+        />
         <Route
           path="/nova"
           element={
